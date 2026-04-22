@@ -8,23 +8,24 @@ class MitigationStrategies(BaseModel):
         default_factory=list,
         description=(
             "Pre-processing techniques applied to the data before model training. "
-            "Use exact names: reweighing, disparate_impact_remover, optimized_preprocessing"
+            "Examples: reweighing, disparate_impact_remover, optimized_preprocessing, "
+            "learning_fair_representations (LFR), fair_data_adaptation."
         ),
     )
     in_processing: list[str] = Field(
         default_factory=list,
         description=(
             "In-processing techniques that modify the learning algorithm itself. "
-            "Use exact names: adversarial_debiasing, prejudice_remover, meta_fair_classifier. "
-            "Only recommend if schema_inference.has_model_predictions is true."
+            "Examples: adversarial_debiasing, prejudice_remover, meta_fair_classifier, "
+            "exponentiated_gradient_reduction, grid_search_reduction, gerry_fair_classifier."
         ),
     )
     post_processing: list[str] = Field(
         default_factory=list,
         description=(
             "Post-processing techniques applied to model predictions. "
-            "Use exact names: equalized_odds_postprocessing, calibrated_equalized_odds, reject_option_classification. "
-            "Only recommend if schema_inference.has_model_predictions is true."
+            "Examples: equalized_odds_postprocessing, calibrated_equalized_odds, "
+            "reject_option_classification, threshold_optimizer."
         ),
     )
 
@@ -57,21 +58,17 @@ class BiasAnalysisPlan(BaseModel):
     bias_types_detected: list[str] = Field(
         description=(
             "Types of bias present in the dataset. "
-            "Use only these exact names: "
-            "representation_bias, historical_bias, measurement_bias, "
-            "aggregation_bias, label_bias, proxy_discrimination"
+            "Common types: representation_bias, historical_bias, measurement_bias, "
+            "aggregation_bias, label_bias, proxy_discrimination, temporal_bias."
         ),
     )
     recommended_detection_metrics: list[str] = Field(
         description=(
             "Fairness metrics to compute, ordered by priority. "
-            "These names map directly to library function names — use exactly: "
-            "statistical_parity_difference, disparate_impact_ratio, "
+            "Examples: statistical_parity_difference, disparate_impact_ratio, "
             "equal_opportunity_difference, average_odds_difference, "
-            "predictive_parity_difference, theil_index. "
-            "Always include statistical_parity_difference and disparate_impact_ratio as baseline. "
-            "Only include equal_opportunity_difference and average_odds_difference "
-            "if schema_inference.has_model_predictions is true."
+            "predictive_parity_difference, theil_index, generalized_entropy_index, "
+            "kl_divergence, jensen_shannon_divergence."
         ),
     )
     recommended_mitigation: MitigationStrategies = Field(

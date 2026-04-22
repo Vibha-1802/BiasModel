@@ -22,6 +22,11 @@ TARGET_KEYWORDS = [
     "churned", "defaulted", "readmitted", "attrition",
 ]
 
+PREDICTION_KEYWORDS = [
+    "prediction", "score", "proba", "probability", "output", "y_pred",
+    "pred", "predicted", "classification", "likelihood",
+]
+
 # Substring match against column name parts — keep this comprehensive.
 PROTECTED_CANDIDATES = [
     "gender", "sex", "race", "ethnicity", "age",
@@ -599,6 +604,10 @@ async def analyze_dataset(file):
             else "multiclass_classification" if target_type == "multiclass"
             else "regression" if target_type == "continuous"
             else "unknown"
+        ),
+        "has_model_predictions": any(
+            _col_matches_keywords(col.lower(), PREDICTION_KEYWORDS)
+            for col in column_names
         ),
     }
 

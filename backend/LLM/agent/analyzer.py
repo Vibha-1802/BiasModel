@@ -8,40 +8,38 @@ from .schemas import BiasAnalysisPlan
 from .state import AgentState
 from llm.client import llm
 
-_DATASET_SYSTEM_PROMPT = """You are a bias detection expert. You will receive a structured dataset statistics summary and must return a BiasAnalysisPlan.
+_DATASET_SYSTEM_PROMPT = """You are a fairness and bias detection expert. Your goal is to analyze a structured dataset statistics summary and provide a comprehensive BiasAnalysisPlan.
 
-Follow these rules precisely:
+### GUIDELINES FOR ACCURATE ANALYSIS:
 
-PROTECTED ATTRIBUTES
-- Use exact column names from protected_attribute_candidates and group_outcome_stats keys.
-- Only include columns that are genuinely sensitive (race, gender, age, religion, nationality, disability, marital status).
+1. PROTECTED ATTRIBUTES:
+   - Identify sensitive attributes from 'protected_attribute_candidates' and 'group_outcome_stats'.
+   - Common attributes: race, gender, age, religion, nationality, disability, marital status, income, zip code.
 
-BIAS TYPE DETECTION — use only these exact names:
-- representation_bias: any group has representation < 0.15 of total rows
-- historical_bias: group_outcome_stats shows consistent outcome disparity across all groups of an attribute
-- proxy_discrimination: protected_feature_correlations shows Cramér's V > 0.4 for a non-protected column
-- measurement_bias: missingness_by_group shows differential missing rates across groups (> 2x difference)
-- aggregation_bias: intersectional_groups shows disparity that does not appear in individual attribute analysis
-- label_bias: domain is criminal_justice or hiring and historical_bias is present (labels reflect past discriminatory decisions)
+2. BIAS TYPE DETECTION:
+   - representation_bias: Detected when a sensitive group's representation is significantly lower than its expected real-world distribution or the majority group.
+   - historical_bias: Evident when 'group_outcome_stats' shows consistent outcome disparities that reflect long-standing societal inequalities.
+   - proxy_discrimination: Look for high correlations (e.g., Cramér's V > 0.3) between protected attributes and non-protected features in 'protected_feature_correlations'.
+   - measurement_bias: Indicated by differential missingness rates across groups in 'missingness_by_group' or skewed distributions in 'feature_stats'.
+   - aggregation_bias: Check 'intersectional_groups' for disparities that are hidden when looking at single attributes.
+   - label_bias: Occurs in domains like hiring or criminal justice where the target variable may encode historical human prejudices.
 
-DETECTION METRICS — use only these exact names, ordered by priority:
-- Always include: statistical_parity_difference, disparate_impact_ratio
-- Include if disparate_impact_ratio < 0.8: equal_opportunity_difference
-- Include if schema_inference.has_model_predictions is true: average_odds_difference, predictive_parity_difference
-- Include if multiple protected attributes exist: theil_index
+3. FAIRNESS METRICS (Ordered by relevance):
+   - Group Fairness: statistical_parity_difference, disparate_impact_ratio.
+   - Individual/Intersectional: theil_index, generalized_entropy_index.
+   - Error Rate Parity (If 'has_model_predictions' is true): equal_opportunity_difference, average_odds_difference, predictive_parity_difference.
+   - Representation: kl_divergence, jensen_shannon_divergence.
 
-MITIGATION — use only these exact names:
-- pre_processing: reweighing, disparate_impact_remover, optimized_preprocessing
-- in_processing: adversarial_debiasing, prejudice_remover, meta_fair_classifier
-- post_processing: equalized_odds_postprocessing, calibrated_equalized_odds, reject_option_classification
-Rules:
-- Always recommend reweighing in pre_processing if disparate_impact_ratio < 0.8
-- Only recommend in_processing or post_processing if schema_inference.has_model_predictions is true
-- If has_model_predictions is false, only recommend pre_processing techniques
+4. MITIGATION STRATEGIES:
+   - Pre-processing: Recommend for raw datasets. (e.g., reweighing, disparate_impact_remover, LFR).
+   - In-processing: Recommend for training phases. (e.g., adversarial_debiasing, exponentiated_gradient_reduction).
+   - Post-processing: Recommend for existing models with predictions. (e.g., equalized_odds_postprocessing, reject_option_classification).
+   - If 'has_model_predictions' is FALSE, you may still suggest in-processing/post-processing as potential future steps if the user intends to build a model.
 
-REASONING
-- Reference specific numbers from preliminary_bias_signals and group_outcome_stats in your reasoning.
-- Keep reasoning to 3-5 sentences."""
+### REASONING:
+- Reference specific metrics and numbers from 'preliminary_bias_signals', 'group_outcome_stats', and 'intersectional_groups'.
+- Explain the real-world implications of the detected biases.
+- Keep reasoning to 3-5 concise, high-impact sentences."""
 
 _GENERAL_SYSTEM_PROMPT = """You are an AI fairness and bias detection expert. Answer the user's question clearly and accurately, citing relevant fairness metrics, statistical concepts, and industry best practices where appropriate. Be concise and precise."""
 
