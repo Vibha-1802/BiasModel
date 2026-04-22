@@ -35,40 +35,30 @@ export default function DetailedBiasMatrix({ biasMatrix }) {
     if (before === null || after === null) return null;
     const improved = Math.abs(after) < Math.abs(before);
     return improved ? (
-      <TrendingDown size={14} style={{ color: 'var(--accent-green)' }} />
+      <TrendingDown size={14} className="text-secondary" />
     ) : (
-      <TrendingUp size={14} style={{ color: 'var(--accent-red)' }} />
+      <TrendingUp size={14} className="text-error" />
     );
   };
 
   return (
-    <div className="glass-card mb-8">
-      <h2 className="text-xl font-bold mb-6">Detailed Bias Metrics by Attribute</h2>
-      <p className="text-secondary mb-6">Expand each attribute to see detailed metric values, pass/fail status, and improvement trends.</p>
+    <div className="bg-white border border-slate-200 rounded-xl p-8 mb-8">
+      <h2 className="font-headline-md text-headline-md mb-6 text-on-background">Detailed Bias Metrics by Attribute</h2>
+      <p className="font-body-md text-on-surface-variant mb-6">Expand each attribute to see detailed metric values, pass/fail status, and improvement trends.</p>
 
       <div className="flex flex-col gap-3">
         {biasMatrix.map((item, idx) => (
-          <div key={idx} className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+          <div key={idx} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
             {/* Header - Click to Expand */}
             <div
               onClick={() => setExpandedAttribute(expandedAttribute === idx ? null : idx)}
-              style={{
-                padding: '16px 20px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: 'pointer',
-                background: 'rgba(255,255,255,0.02)',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+              className="px-5 py-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors"
             >
-              <div className="flex items-center gap-3 flex-1">
-                <h3 className="font-bold text-lg">{formatKey(item.attribute)}</h3>
+              <div className="flex items-center gap-4 flex-1">
+                <h3 className="font-headline-sm text-lg text-on-background">{formatKey(item.attribute)}</h3>
                 
                 {/* Quick Status Summary */}
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   {metricKeys.map((metricKey) => {
                     const passedBefore = item[`${metricKey}_passed_before`];
                     const passedAfter = item[`${metricKey}_passed_after`];
@@ -76,20 +66,20 @@ export default function DetailedBiasMatrix({ biasMatrix }) {
                     if (passedBefore === null || passedBefore === undefined) return null;
                     
                     return (
-                      <div key={metricKey} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div key={metricKey} className="flex items-center gap-1">
                         {passedBefore ? (
-                          <CheckCircle size={16} style={{ color: 'var(--accent-green)' }} />
+                          <CheckCircle size={16} className="text-secondary" />
                         ) : (
-                          <XCircle size={16} style={{ color: 'var(--accent-red)' }} />
+                          <XCircle size={16} className="text-error" />
                         )}
                         {passedAfter !== null && passedAfter !== undefined && (
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>→</span>
+                          <span className="text-slate-400 text-xs">→</span>
                         )}
                         {passedAfter !== null && passedAfter !== undefined && (
                           passedAfter ? (
-                            <CheckCircle size={16} style={{ color: 'var(--accent-green)' }} />
+                            <CheckCircle size={16} className="text-secondary" />
                           ) : (
-                            <XCircle size={16} style={{ color: 'var(--accent-red)' }} />
+                            <XCircle size={16} className="text-error" />
                           )
                         )}
                       </div>
@@ -98,21 +88,21 @@ export default function DetailedBiasMatrix({ biasMatrix }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500 }}>
+              <div className="flex items-center gap-3">
+                <span className="font-label-md text-slate-500 uppercase tracking-widest text-[11px]">
                   {expandedAttribute === idx ? 'Hide' : 'Show'} Details
                 </span>
                 {expandedAttribute === idx ? (
-                  <ChevronUp size={20} style={{ color: 'var(--text-secondary)' }} />
+                  <ChevronUp size={20} className="text-slate-400" />
                 ) : (
-                  <ChevronDown size={20} style={{ color: 'var(--text-secondary)' }} />
+                  <ChevronDown size={20} className="text-slate-400" />
                 )}
               </div>
             </div>
 
             {/* Expanded Content */}
             {expandedAttribute === idx && (
-              <div style={{ padding: '20px', borderTop: '1px solid var(--border-glass)' }}>
+              <div className="p-5 border-t border-slate-200 bg-slate-50">
                 <div className="grid grid-cols-1 gap-6">
                   {metricKeys.map((metricKey) => {
                     const valueBefore = item[`${metricKey}_before`];
@@ -129,60 +119,55 @@ export default function DetailedBiasMatrix({ biasMatrix }) {
                     return (
                       <div
                         key={metricKey}
-                        style={{
-                          padding: '16px',
-                          background: 'rgba(255,255,255,0.02)',
-                          borderRadius: '8px',
-                          borderLeft: `3px solid ${passedAfter ? 'var(--accent-green)' : 'var(--accent-red)'}`,
-                        }}
+                        className={`p-4 bg-white border border-slate-200 rounded-lg border-l-4 ${passedAfter ? 'border-l-secondary' : 'border-l-error'}`}
                       >
-                        <div className="flex justify-between items-start mb-3">
+                        <div className="flex justify-between items-start mb-4">
                           <div>
-                            <h4 className="font-bold mb-1">{formatKey(metricKey)}</h4>
-                            <p className="text-xs text-secondary">
+                            <h4 className="font-headline-sm text-base mb-1 text-on-background">{formatKey(metricKey)}</h4>
+                            <p className="font-label-md text-xs text-on-surface-variant">
                               Goal: {goalValue === 0 ? 'Close to 0' : 'Close to 1'} (threshold: ±{threshold.toFixed(2)})
                             </p>
                           </div>
                           <div className="flex gap-2">
                             {passedBefore ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px' }}>
-                                <CheckCircle size={14} style={{ color: 'var(--accent-green)' }} />
-                                <span style={{ fontSize: '11px', color: 'var(--accent-green)', fontWeight: 600 }}>PASS</span>
+                              <div className="flex items-center gap-1 bg-secondary/10 px-2 py-1 rounded">
+                                <CheckCircle size={14} className="text-secondary" />
+                                <span className="font-label-md text-[11px] text-secondary">PASS</span>
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '4px' }}>
-                                <XCircle size={14} style={{ color: 'var(--accent-red)' }} />
-                                <span style={{ fontSize: '11px', color: 'var(--accent-red)', fontWeight: 600 }}>FAIL</span>
+                              <div className="flex items-center gap-1 bg-error/10 px-2 py-1 rounded">
+                                <XCircle size={14} className="text-error" />
+                                <span className="font-label-md text-[11px] text-error">FAIL</span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 mt-3">
-                          <div style={{ background: 'rgba(100, 116, 139, 0.2)', padding: '12px', borderRadius: '6px' }}>
-                            <p className="text-xs text-secondary uppercase font-bold mb-1">Before Mitigation</p>
-                            <p className="text-lg font-bold">{formatMetricValue(valueBefore)}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="bg-slate-50 p-3 rounded-md border border-slate-100">
+                            <p className="font-label-md text-[11px] text-slate-500 mb-1">BEFORE MITIGATION</p>
+                            <p className="font-headline-sm text-lg text-on-background">{formatMetricValue(valueBefore)}</p>
                           </div>
 
-                          <div style={{ background: 'rgba(59, 130, 246, 0.2)', padding: '12px', borderRadius: '6px' }}>
-                            <p className="text-xs text-secondary uppercase font-bold mb-1">After Mitigation</p>
+                          <div className="bg-primary/5 p-3 rounded-md border border-primary/10">
+                            <p className="font-label-md text-[11px] text-primary mb-1">AFTER MITIGATION</p>
                             <div className="flex items-end justify-between">
-                              <p className="text-lg font-bold">{formatMetricValue(valueAfter)}</p>
+                              <p className="font-headline-sm text-lg text-primary">{formatMetricValue(valueAfter)}</p>
                               {valueAfter !== null && (
                                 getImprovementIcon(valueBefore, valueAfter)
                               )}
                             </div>
                           </div>
 
-                          <div style={{ background: 'rgba(139, 92, 246, 0.2)', padding: '12px', borderRadius: '6px' }}>
-                            <p className="text-xs text-secondary uppercase font-bold mb-1">Change (Δ)</p>
-                            <p className="text-lg font-bold">{formatMetricValue(delta)}</p>
+                          <div className="bg-[#9d6ef5]/5 p-3 rounded-md border border-[#9d6ef5]/10">
+                            <p className="font-label-md text-[11px] text-[#9d6ef5] mb-1">CHANGE (Δ)</p>
+                            <p className="font-headline-sm text-lg text-[#9d6ef5]">{formatMetricValue(delta)}</p>
                           </div>
                         </div>
 
                         {valueAfter !== null && valueAfter !== undefined && passedAfter !== null && passedAfter !== undefined && (
-                          <div style={{ marginTop: '12px', padding: '8px 12px', background: passedAfter ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '4px' }}>
-                            <p className="text-xs font-medium" style={{ color: passedAfter ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                          <div className={`mt-3 px-3 py-2 rounded-md ${passedAfter ? 'bg-secondary/10 text-secondary' : 'bg-error/10 text-error'}`}>
+                            <p className="font-label-md text-xs">
                               {passedAfter ? '✓ This metric now passes fairness threshold' : '✗ This metric still fails fairness threshold'}
                             </p>
                           </div>

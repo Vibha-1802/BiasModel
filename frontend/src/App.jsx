@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import LandingPage from './components/LandingPage';
 import UploadSection from './components/UploadSection';
 import Dashboard from './components/Dashboard';
 import './index.css';
 
 function App() {
+  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'upload', 'dashboard'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -25,6 +27,7 @@ function App() {
       });
 
       setData(response.data);
+      setCurrentView('dashboard');
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.detail || 'Failed to analyze the dataset. Please ensure the backend is running on port 8000.');
@@ -36,20 +39,25 @@ function App() {
   const handleReset = () => {
     setData(null);
     setError(null);
+    setCurrentView('upload');
   };
 
   return (
-    <div className="container">
-      {!data ? (
+    <>
+      {currentView === 'landing' && (
+        <LandingPage onTryItNow={() => setCurrentView('upload')} />
+      )}
+      {currentView === 'upload' && (
         <UploadSection 
           onUpload={handleUpload} 
           isLoading={loading} 
           error={error} 
         />
-      ) : (
+      )}
+      {currentView === 'dashboard' && data && (
         <Dashboard data={data} onReset={handleReset} />
       )}
-    </div>
+    </>
   );
 }
 

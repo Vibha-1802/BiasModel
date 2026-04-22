@@ -30,14 +30,16 @@ export default function Dashboard({ data, onReset }) {
         return (
           <>
             <DatasetOverview data={data.dataset_summary} />
-            <div className="grid grid-cols-1 gap-8">
+            <div className="grid grid-cols-1 gap-8 mt-8">
               <BiasMatrixChart biasMatrix={data.reporting_pack?.bias_matrix} />
               <PerformanceMetrics performanceMatrix={data.reporting_pack?.performance_matrix} />
             </div>
-            <FeatureStatsTable 
-              numericalSummary={data.numerical_summary} 
-              featureStats={data.feature_stats} 
-            />
+            <div className="mt-8">
+              <FeatureStatsTable 
+                numericalSummary={data.numerical_summary} 
+                featureStats={data.feature_stats} 
+              />
+            </div>
           </>
         );
       case 'bias-plan':
@@ -47,7 +49,9 @@ export default function Dashboard({ data, onReset }) {
               biasPlan={data.bias_plan} 
               biasTypes={data.bias_plan?.bias_types_detected}
             />
-            <TaxonomyView taxonomy={data.fairness_taxonomy} biasPlan={data.bias_plan} />
+            <div className="mt-8">
+              <TaxonomyView taxonomy={data.fairness_taxonomy} biasPlan={data.bias_plan} />
+            </div>
           </>
         );
       case 'mitigation':
@@ -63,7 +67,9 @@ export default function Dashboard({ data, onReset }) {
         return (
           <>
             <DetailedBiasMatrix biasMatrix={data.reporting_pack?.bias_matrix} />
-            <ConfusionMatrixVisualization performanceMatrix={data.reporting_pack?.performance_matrix} />
+            <div className="mt-8">
+              <ConfusionMatrixVisualization performanceMatrix={data.reporting_pack?.performance_matrix} />
+            </div>
           </>
         );
       case 'catalog':
@@ -78,21 +84,24 @@ export default function Dashboard({ data, onReset }) {
   };
 
   return (
-    <div className="animate-fade-in" style={{ paddingBottom: '64px' }}>
+    <div className="animate-fade-in pb-16 pt-12 px-6 max-w-[1440px] mx-auto bg-background text-on-background min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Fairness Analysis Report</h1>
-          <p className="text-secondary">Comprehensive bias detection and mitigation analysis</p>
+          <h1 className="font-headline-lg text-headline-lg m-0">Fairness Analysis Report</h1>
+          <p className="font-body-md text-on-surface-variant mt-2">Comprehensive bias detection and mitigation analysis</p>
         </div>
-        <button className="btn-primary" onClick={onReset} style={{ backgroundColor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button 
+          className="bg-white border border-slate-300 text-on-surface px-6 py-2 rounded shadow-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-all font-label-md uppercase tracking-wider" 
+          onClick={onReset}
+        >
           <RefreshCw size={16} /> 
           <span>Analyze New Dataset</span>
         </button>
       </div>
 
       {/* Tab Navigation */}
-      <div className="glass-card mb-8" style={{ padding: '0', display: 'flex', borderRadius: '16px', overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm mb-8 flex flex-wrap sm:flex-nowrap overflow-hidden">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -100,35 +109,14 @@ export default function Dashboard({ data, onReset }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1,
-                padding: '16px 20px',
-                border: 'none',
-                background: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                borderBottom: isActive ? '2px solid var(--accent-blue)' : '2px solid transparent',
-                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontWeight: isActive ? 600 : 500,
-                fontSize: '14px',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.target.style.background = 'rgba(255,255,255,0.03)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.target.style.background = 'transparent';
-                }
-              }}
+              className={`flex-1 py-4 px-4 flex items-center justify-center gap-2 transition-all border-b-2 font-label-md uppercase tracking-wider text-[12px] sm:text-[14px] ${
+                isActive 
+                  ? 'border-primary text-primary bg-primary/5' 
+                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              }`}
             >
               <Icon size={16} />
-              <span>{tab.label}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           );
         })}

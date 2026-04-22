@@ -31,12 +31,12 @@ export default function TaxonomyCatalog({ taxonomy }) {
   ];
 
   return (
-    <div className="glass-card mb-8">
+    <div className="bg-white border border-slate-200 rounded-xl p-8 mb-8">
       <div className="flex items-center gap-3 mb-6">
-        <BookOpen size={24} style={{ color: 'var(--accent-blue)' }} />
+        <BookOpen size={24} className="text-primary" />
         <div>
-          <h2 className="text-xl font-bold">Fairness & Mitigation Catalog</h2>
-          <p className="text-sm text-secondary">Complete reference of detection metrics and mitigation strategies</p>
+          <h2 className="font-headline-md text-headline-md text-on-background">Fairness & Mitigation Catalog</h2>
+          <p className="font-body-md text-sm text-on-surface-variant">Complete reference of detection metrics and mitigation strategies</p>
         </div>
       </div>
 
@@ -46,93 +46,48 @@ export default function TaxonomyCatalog({ taxonomy }) {
             {/* Section Header */}
             <div
               onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
-              style={{
-                padding: '16px 20px',
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border-glass)',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                e.currentTarget.style.borderColor = 'var(--border-glass)';
-              }}
+              className="px-5 py-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer flex justify-between items-center transition-colors hover:bg-slate-100"
             >
-              <div className="flex items-center gap-3 flex-1">
-                <span style={{ fontSize: '20px' }}>{section.icon}</span>
+              <div className="flex items-center gap-4 flex-1">
+                <span className="text-2xl">{section.icon}</span>
                 <div>
-                  <h3 className="font-bold text-lg">{section.title}</h3>
-                  <p className="text-sm text-secondary">{section.description}</p>
+                  <h3 className="font-headline-sm text-lg text-on-background">{section.title}</h3>
+                  <p className="font-body-md text-sm text-on-surface-variant">{section.description}</p>
                 </div>
               </div>
               {expandedSection === section.id ? (
-                <ChevronUp size={20} style={{ color: 'var(--text-secondary)' }} />
+                <ChevronUp size={20} className="text-slate-400" />
               ) : (
-                <ChevronDown size={20} style={{ color: 'var(--text-secondary)' }} />
+                <ChevronDown size={20} className="text-slate-400" />
               )}
             </div>
 
             {/* Expanded Content */}
             {expandedSection === section.id && (
-              <div style={{ marginTop: '12px', paddingLeft: '12px' }}>
+              <div className="mt-4 px-2">
                 {section.isNested ? (
                   // Mitigation Algorithms (nested by stage)
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-6">
                     {Object.entries(section.items).map(([stage, algorithms]) => (
                       <div key={stage}>
-                        <h4
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            color: 'var(--text-secondary)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            marginBottom: '10px',
-                            paddingBottom: '8px',
-                            borderBottom: '1px solid var(--border-glass)',
-                          }}
-                        >
+                        <h4 className="font-label-md text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-slate-200">
                           {formatKey(stage)}
                         </h4>
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {Object.entries(algorithms).map(([algoKey, algoData]) => (
                             <div
                               key={algoKey}
-                              className="glass-panel"
-                              style={{
-                                padding: '16px',
-                                background: 'rgba(255,255,255,0.02)',
-                                border: algoData.supported_now ? '1px solid var(--accent-green)40' : '1px solid var(--border-glass)',
-                                borderLeft: algoData.supported_now ? '3px solid var(--accent-green)' : '3px solid var(--border-glass)',
-                              }}
+                              className={`p-4 bg-white border rounded-lg ${algoData.supported_now ? 'border-secondary/30 border-l-4 border-l-secondary shadow-sm' : 'border-slate-200 border-l-4 border-l-slate-200'}`}
                             >
                               <div className="flex justify-between items-start mb-2">
-                                <h5 className="font-bold text-sm">{formatKey(algoKey)}</h5>
+                                <h5 className="font-headline-sm text-sm text-on-background">{formatKey(algoKey)}</h5>
                                 {algoData.supported_now && (
-                                  <span
-                                    style={{
-                                      background: 'rgba(16, 185, 129, 0.1)',
-                                      color: 'var(--accent-green)',
-                                      padding: '4px 10px',
-                                      borderRadius: '6px',
-                                      fontSize: '10px',
-                                      fontWeight: 600,
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
+                                  <span className="bg-secondary/10 text-secondary px-2 py-0.5 rounded text-[10px] font-label-md tracking-wider uppercase">
                                     ✓ Active
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-secondary">{algoData.description}</p>
+                              <p className="font-body-md text-xs text-on-surface-variant">{algoData.description}</p>
                             </div>
                           ))}
                         </div>
@@ -141,37 +96,21 @@ export default function TaxonomyCatalog({ taxonomy }) {
                   </div>
                 ) : (
                   // Detection Metrics (flat list)
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(section.items).map(([metricKey, metricData]) => (
                       <div
                         key={metricKey}
-                        className="glass-panel"
-                        style={{
-                          padding: '16px',
-                          background: 'rgba(255,255,255,0.02)',
-                          border: metricData.supported_now ? '1px solid var(--accent-green)40' : '1px solid var(--border-glass)',
-                          borderLeft: metricData.supported_now ? '3px solid var(--accent-green)' : '3px solid var(--border-glass)',
-                        }}
+                        className={`p-4 bg-white border rounded-lg ${metricData.supported_now ? 'border-secondary/30 border-l-4 border-l-secondary shadow-sm' : 'border-slate-200 border-l-4 border-l-slate-200'}`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h5 className="font-bold text-sm">{formatKey(metricKey)}</h5>
+                          <h5 className="font-headline-sm text-sm text-on-background">{formatKey(metricKey)}</h5>
                           {metricData.supported_now && (
-                            <span
-                              style={{
-                                background: 'rgba(16, 185, 129, 0.1)',
-                                color: 'var(--accent-green)',
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                fontSize: '10px',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                              }}
-                            >
+                            <span className="bg-secondary/10 text-secondary px-2 py-0.5 rounded text-[10px] font-label-md tracking-wider uppercase">
                               ✓ Active
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-secondary">{metricData.description}</p>
+                        <p className="font-body-md text-xs text-on-surface-variant">{metricData.description}</p>
                       </div>
                     ))}
                   </div>
@@ -183,19 +122,11 @@ export default function TaxonomyCatalog({ taxonomy }) {
       </div>
 
       {/* Legend */}
-      <div
-        style={{
-          marginTop: '24px',
-          padding: '12px 16px',
-          background: 'rgba(255,255,255,0.02)',
-          borderRadius: '8px',
-          borderLeft: '3px solid var(--text-secondary)',
-        }}
-      >
-        <p className="text-xs text-secondary">
-          <span style={{ fontWeight: 600 }}>✓ Active:</span> Currently supported and can be used in bias detection/mitigation.
+      <div className="mt-6 p-4 bg-slate-50 border border-slate-200 border-l-4 border-l-slate-400 rounded-lg">
+        <p className="font-body-md text-xs text-on-surface-variant m-0 leading-relaxed">
+          <span className="font-bold text-on-background">✓ Active:</span> Currently supported and can be used in bias detection/mitigation.
           <br />
-          <span style={{ fontWeight: 600 }}>Inactive:</span> Not yet implemented but planned for future versions.
+          <span className="font-bold text-on-background">Inactive:</span> Not yet implemented but planned for future versions.
         </p>
       </div>
     </div>

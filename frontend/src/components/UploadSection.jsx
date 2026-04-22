@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { UploadCloud, File, AlertCircle, CheckCircle, Brain, Zap, BarChart3, Shield } from 'lucide-react';
+import { UploadCloud, File, AlertCircle, Brain, Zap, BarChart3, Shield } from 'lucide-react';
 
 export default function UploadSection({ onUpload, isLoading, error }) {
   const [dragActive, setDragActive] = useState(false);
@@ -48,20 +48,20 @@ export default function UploadSection({ onUpload, isLoading, error }) {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: '20px', paddingBottom: '40px' }}>
+    <div className="min-h-screen pt-16 pb-16 bg-background text-on-background px-6 max-w-[1440px] mx-auto">
       {/* Header Section */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '60px', textAlign: 'center' }}>
-        <h1 className="text-2xl font-bold mb-4">AI Bias Detection & Mitigation</h1>
-        <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', maxWidth: '700px', margin: '0 auto' }}>
+      <div className="max-w-[900px] mx-auto pb-16 text-center mt-12">
+        <h1 className="font-headline-lg text-headline-lg mb-4 text-on-background">AI Bias Detection & Mitigation</h1>
+        <p className="font-body-lg text-body-lg text-on-surface-variant max-w-[700px] mx-auto">
           Detect, analyze, and mitigate bias in your machine learning models with advanced fairness metrics and AI-powered insights.
         </p>
       </div>
 
       {/* Main Upload Section */}
-      <div className="glass-panel" style={{ padding: '48px', maxWidth: '700px', margin: '0 auto 60px', textAlign: 'center' }}>
-        <div style={{ marginBottom: '32px' }}>
-          <h2 className="text-xl font-bold mb-2">Upload Your Dataset</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>CSV format with labeled predictions and demographic attributes</p>
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-8 max-w-[700px] mx-auto mb-16 text-center">
+        <div className="mb-8">
+          <h2 className="font-headline-md text-headline-md mb-2 text-on-background">Upload Your Dataset</h2>
+          <p className="font-body-md text-on-surface-variant">CSV format with labeled predictions and demographic attributes</p>
         </div>
 
         <div 
@@ -69,15 +69,7 @@ export default function UploadSection({ onUpload, isLoading, error }) {
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-          style={{
-            border: `2px dashed ${dragActive ? 'var(--accent-blue)' : 'var(--border-glass)'}`,
-            borderRadius: '12px',
-            padding: '48px 24px',
-            backgroundColor: dragActive ? 'rgba(79, 122, 255, 0.03)' : 'rgba(255, 255, 255, 0.01)',
-            transition: 'all 0.2s',
-            cursor: 'pointer',
-            position: 'relative'
-          }}
+          className={`border-2 border-dashed rounded-xl p-12 transition-all cursor-pointer relative ${dragActive ? 'border-primary bg-primary/5' : 'border-slate-300 hover:border-primary/50 hover:bg-slate-50'}`}
           onClick={() => document.getElementById('file-upload').click()}
         >
           <input 
@@ -85,18 +77,18 @@ export default function UploadSection({ onUpload, isLoading, error }) {
             type="file" 
             accept=".csv" 
             onChange={handleChange} 
-            style={{ display: 'none' }} 
+            className="hidden" 
           />
           
           {file ? (
             <div className="flex flex-col items-center gap-4">
-              <File size={48} className="text-blue" />
+              <File size={48} className="text-primary" />
               <div>
-                <p className="font-medium text-lg">{file.name}</p>
-                <p className="text-sm">{(file.size / 1024).toFixed(1)} KB</p>
+                <p className="font-headline-sm text-sm font-bold text-on-background">{file.name}</p>
+                <p className="font-body-md text-sm text-on-surface-variant">{(file.size / 1024).toFixed(1)} KB</p>
               </div>
               <button 
-                className="btn-primary mt-4" 
+                className="bg-primary text-on-primary px-6 py-3 font-label-md uppercase tracking-wider hover:bg-on-primary-fixed-variant transition-all rounded shadow-sm mt-4 flex items-center justify-center gap-2" 
                 onClick={(e) => { e.stopPropagation(); handleAnalyze(); }}
                 disabled={isLoading}
               >
@@ -109,51 +101,45 @@ export default function UploadSection({ onUpload, isLoading, error }) {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4">
-              <UploadCloud size={48} style={{ color: 'var(--text-secondary)' }} />
+              <UploadCloud size={48} className="text-slate-400" />
               <div>
-                <p className="text-lg font-medium">Drag and drop your CSV here</p>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>or click to browse files</p>
+                <p className="font-headline-sm text-lg font-bold text-on-background">Drag and drop your CSV here</p>
+                <p className="font-body-md text-sm text-on-surface-variant">or click to browse files</p>
               </div>
             </div>
           )}
         </div>
 
         {error && (
-          <div className="mt-8 flex items-center gap-2 bg-red-soft p-4" style={{ borderRadius: '8px' }}>
-            <AlertCircle size={20} style={{ color: 'var(--accent-red)', flexShrink: 0 }} />
-            <p style={{ color: 'var(--accent-red)', margin: 0, fontSize: '0.95rem' }}>{error}</p>
+          <div className="mt-8 flex items-center gap-2 bg-error-container p-4 rounded-lg">
+            <AlertCircle size={20} className="text-error flex-shrink-0" />
+            <p className="text-error m-0 font-body-md">{error}</p>
           </div>
         )}
 
         {isLoading && (
-          <div className="mt-8 animate-fade-in">
-            <p className="mb-4" style={{ color: 'var(--accent-blue)', fontWeight: 500 }}>Processing dataset and analyzing fairness metrics...</p>
-            <div style={{ width: '100%', height: '3px', background: 'var(--bg-secondary)', borderRadius: '2px', overflow: 'hidden' }}>
-              <div style={{ 
-                width: '50%', 
-                height: '100%', 
-                background: 'var(--accent-blue)', 
-                animation: 'loading 1.5s infinite ease-in-out',
-                borderRadius: '2px'
-              }}></div>
+          <div className="mt-8 animate-fade-in text-left">
+            <p className="mb-4 text-primary font-medium font-body-md">Processing dataset and analyzing fairness metrics...</p>
+            <div className="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+              <div className="w-1/2 h-full bg-primary rounded-full animate-[loading_1.5s_infinite_ease-in-out]"></div>
             </div>
           </div>
         )}
       </div>
 
       {/* Features Section */}
-      <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
-        <h2 className="text-xl font-bold text-center mb-12">How It Works</h2>
-        <div className="grid grid-cols-1 gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+      <div className="max-w-[1000px] mx-auto pb-16">
+        <h2 className="font-headline-md text-headline-md text-center mb-12 text-on-background">How It Works</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feature, idx) => {
             const Icon = feature.icon;
             return (
-              <div key={idx} className="glass-panel" style={{ padding: '32px' }}>
-                <div style={{ marginBottom: '16px' }}>
-                  <Icon size={32} style={{ color: 'var(--accent-blue)' }} />
+              <div key={idx} className="bg-white p-6 border border-slate-200 flex flex-col gap-sm hover:border-primary/50 transition-all rounded-lg">
+                <div className="mb-4 w-12 h-12 bg-surface-container-low flex items-center justify-center rounded">
+                  <Icon size={24} className="text-primary" />
                 </div>
-                <h3 className="text-sm font-bold mb-2">{feature.title}</h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                <h3 className="font-headline-sm text-[16px] leading-snug">{feature.title}</h3>
+                <p className="font-body-md text-[14px] text-on-surface-variant m-0 mt-2">
                   {feature.description}
                 </p>
               </div>
@@ -163,45 +149,29 @@ export default function UploadSection({ onUpload, isLoading, error }) {
       </div>
 
       {/* Key Metrics Section */}
-      <div className="glass-panel" style={{ maxWidth: '900px', margin: '0 auto', padding: '40px' }}>
-        <h2 className="text-xl font-bold mb-6">What We Measure</h2>
-        <div className="grid grid-cols-1 gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          <div style={{ paddingBottom: '24px', borderBottom: '1px solid var(--border-glass)' }}>
-            <h4 className="font-bold mb-2" style={{ color: 'var(--accent-blue)' }}>Statistical Parity Difference</h4>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+      <div className="bg-white border border-slate-200 rounded-xl p-10 max-w-[900px] mx-auto">
+        <h2 className="font-headline-md text-headline-md mb-6 text-on-background">What We Measure</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="pb-6 border-b md:border-b-0 md:border-r border-slate-200 md:pr-6">
+            <h4 className="font-headline-sm text-sm uppercase tracking-tight text-primary mb-2">Statistical Parity Difference</h4>
+            <p className="font-body-md text-sm text-on-surface-variant m-0">
               Measures if positive outcomes occur at equal rates across protected groups. Ideally close to 0.
             </p>
           </div>
-          <div style={{ paddingBottom: '24px', borderBottom: '1px solid var(--border-glass)' }}>
-            <h4 className="font-bold mb-2" style={{ color: 'var(--accent-green)' }}>Disparate Impact Ratio</h4>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+          <div className="pb-6 border-b md:border-b-0 md:border-r border-slate-200 md:px-6">
+            <h4 className="font-headline-sm text-sm uppercase tracking-tight text-secondary mb-2">Disparate Impact Ratio</h4>
+            <p className="font-body-md text-sm text-on-surface-variant m-0">
               Compares hiring/acceptance rates across groups. The 80% rule suggests ratio ≥ 0.8.
             </p>
           </div>
-          <div style={{ paddingBottom: '24px', borderBottom: '1px solid var(--border-glass)' }}>
-            <h4 className="font-bold mb-2" style={{ color: 'var(--accent-purple)' }}>Equalized Odds Difference</h4>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+          <div className="md:pl-6">
+            <h4 className="font-headline-sm text-sm uppercase tracking-tight text-[#9d6ef5] mb-2">Equalized Odds Difference</h4>
+            <p className="font-body-md text-sm text-on-surface-variant m-0">
               Ensures false positive and false negative rates are equal across groups. Ideally close to 0.
             </p>
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes loading {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(200%); }
-        }
-        .spinner {
-          width: 14px;
-          height: 14px;
-          border: 2px solid rgba(255,255,255,0.2);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

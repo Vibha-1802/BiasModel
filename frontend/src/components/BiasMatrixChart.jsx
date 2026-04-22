@@ -8,17 +8,11 @@ export default function BiasMatrixChart({ biasMatrix }) {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div style={{
-          padding: '12px 16px',
-          backgroundColor: '#1a1a2e',
-          border: '2px solid var(--accent-blue)',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)'
-        }}>
-          <p className="font-bold mb-2" style={{ color: '#f0f4ff' }}>{formatKey(label)}</p>
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
+          <p className="font-headline-sm text-sm font-bold text-on-background mb-2">{formatKey(label)}</p>
           {payload.map((p, i) => (
-            <p key={i} style={{ color: p.color, margin: '4px 0', fontWeight: 500 }}>
-              {p.name}: <span className="font-medium">{Number(p.value).toFixed(4)}</span>
+            <p key={i} style={{ color: p.color, margin: '4px 0' }} className="font-body-md text-sm">
+              {p.name}: <span className="font-bold">{Number(p.value).toFixed(4)}</span>
             </p>
           ))}
         </div>
@@ -29,18 +23,18 @@ export default function BiasMatrixChart({ biasMatrix }) {
 
   const renderChart = (title, dataKeyBefore, dataKeyAfter, goal, goalLabel) => {
     return (
-      <div style={{ flex: 1, minWidth: '300px', height: '350px' }}>
-        <h3 className="text-lg font-medium text-center mb-4">{title}</h3>
+      <div className="flex-1 min-w-[300px] h-[350px]">
+        <h3 className="font-headline-sm text-base text-center mb-4 text-on-background">{title}</h3>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={biasMatrix} margin={{ top: 30, right: 50, left: 20, bottom: 40 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-            <XAxis dataKey="attribute" stroke="var(--text-secondary)" tickFormatter={formatKey} angle={-45} textAnchor="end" height={80} />
-            <YAxis stroke="var(--text-secondary)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <XAxis dataKey="attribute" stroke="#64748b" tick={{fontSize: 12}} tickFormatter={formatKey} angle={-45} textAnchor="end" height={80} />
+            <YAxis stroke="#64748b" tick={{fontSize: 12}} />
             <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ paddingTop: '15px' }} />
-            <ReferenceLine y={goal} stroke="var(--accent-purple)" strokeDasharray="3 3" label={{ value: goalLabel, fill: 'var(--accent-purple)', position: 'right', dy: 0, offset: 10 }} />
-            <Bar dataKey={dataKeyBefore} name="Before Mitigation" fill="#64748b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey={dataKeyAfter} name="After Mitigation" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
+            <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '12px' }} />
+            <ReferenceLine y={goal} stroke="#824500" strokeDasharray="3 3" label={{ value: goalLabel, fill: '#824500', position: 'right', dy: 0, offset: 10, fontSize: 12 }} />
+            <Bar dataKey={dataKeyBefore} name="Before Mitigation" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+            <Bar dataKey={dataKeyAfter} name="After Mitigation" fill="#004ac6" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -48,9 +42,9 @@ export default function BiasMatrixChart({ biasMatrix }) {
   };
 
   return (
-    <div className="glass-card mb-8">
-      <h2 className="text-xl font-bold mb-6">Bias Mitigation Results</h2>
-      <div className="flex flex-wrap gap-8">
+    <div className="bg-white border border-slate-200 rounded-xl p-8 mb-8">
+      <h2 className="font-headline-md text-headline-md mb-6 text-on-background">Bias Mitigation Results</h2>
+      <div className="flex flex-col lg:flex-row gap-8">
         {renderChart(
           "Statistical Parity Difference", 
           "statistical_parity_difference_before", 
