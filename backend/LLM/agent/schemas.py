@@ -81,3 +81,22 @@ class BiasAnalysisPlan(BaseModel):
             "and group_outcome_stats."
         ),
     )
+
+
+class DatasetSchema(BaseModel):
+    target_column: str | None = Field(
+        default=None,
+        description="The most likely target variable or business outcome being predicted (e.g. approved, defaulted, hired, churned, price, etc.)"
+    )
+    protected_columns: list[str] = Field(
+        default_factory=list,
+        description="List of columns that represent protected demographic attributes (e.g. race, gender, age, zip code, etc.)"
+    )
+    dataset_domain: str = Field(
+        default="unknown",
+        description="The general domain of the dataset (e.g. 'credit_scoring', 'hiring', 'healthcare', 'criminal_justice', 'housing', 'unknown')"
+    )
+    has_model_predictions: bool = Field(
+        default=False,
+        description="Whether the dataset already contains model prediction columns (e.g. prediction, score, probability, y_pred)"
+    )
