@@ -85,10 +85,23 @@ export default function Dashboard({ data, onReset }) {
           <h1 className="text-2xl font-bold">Fairness Analysis Report</h1>
           <p className="text-secondary">Comprehensive bias detection and mitigation analysis</p>
         </div>
-        <button className="btn-primary" onClick={onReset} style={{ backgroundColor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <RefreshCw size={16} /> 
-          <span>Analyze New Dataset</span>
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {data.downloadUrl && (
+            <a 
+              href={data.downloadUrl} 
+              download="mitigated_dataset.csv" 
+              className="btn-primary" 
+              style={{ backgroundColor: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
+            >
+              <Database size={16} /> 
+              <span>Download Mitigated Data</span>
+            </a>
+          )}
+          <button className="btn-primary" onClick={onReset} style={{ backgroundColor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RefreshCw size={16} /> 
+            <span>Analyze New Dataset</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab Navigation */}
