@@ -1,0 +1,11 @@
+improve fairness of AI systems.
+
+The project aspires to include:
+
+A Python library for fairness assessment and improvement (fairness metrics, mitigation algorithms, plotting, etc.)
+
+Educational resources covering organizational and technical processes for unfairness mitigation (comprehensive user guide, detailed case studies, Jupyter notebooks, white papers, etc.)
+
+Development of Fairlearn is firmly grounded in the understanding that fairness in AI systems is a sociotechnical challenge. Because there are many complex sources of unfairness — some societal and some technical — it is not possible to fully “debias” a system or to guarantee fairness. Our goal is to enable humans to assess fairness-related harms, review the impacts of different mitigation strategies and then make trade-offs appropriate to their scenario.
+
+https://fairlearn.org/main/user_guide/datasets/boston_housing_data.html
