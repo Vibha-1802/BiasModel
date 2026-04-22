@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Settings, Wrench } from 'lucide-react';
+import { ShieldAlert, Wrench, BrainCircuit } from 'lucide-react';
 import { formatKey } from '../utils/formatters';
 
 export default function TaxonomyView({ taxonomy, biasPlan }) {
@@ -8,6 +8,27 @@ export default function TaxonomyView({ taxonomy, biasPlan }) {
   return (
     <div className="glass-card mb-8">
       <h2 className="text-xl font-bold mb-6">LLM Fairness Strategy Recommendations</h2>
+      
+      {biasPlan.reasoning && (
+        <div className="glass-panel mb-8" style={{ padding: '24px', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <BrainCircuit className="text-blue" size={24} />
+            <h3 className="text-lg font-bold">LLM Reasoning</h3>
+          </div>
+          <p className="text-primary mb-6" style={{ lineHeight: '1.6' }}>{biasPlan.reasoning}</p>
+          
+          {biasPlan.bias_types_detected && biasPlan.bias_types_detected.length > 0 && (
+            <div>
+              <p className="text-sm text-secondary font-bold uppercase tracking-wider mb-2">Detected Bias Types</p>
+              <div className="flex flex-wrap gap-2">
+                {biasPlan.bias_types_detected.map((type, i) => (
+                  <span key={i} className="badge bg-blue-soft">{formatKey(type)}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
       <div className="grid grid-cols-2 gap-8">
         <div>
