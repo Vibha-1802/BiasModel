@@ -56,6 +56,21 @@ class BiasMitigationEngine:
         if not self.protected_attributes:
             raise ValueError("No protected attributes specified in bias_plan")
 
+    def _normalize_target(self, series: pd.Series) -> pd.Series:
+        """Robustly normalize target column to 0/1 integers."""
+        s = series.copy()
+        if pd.api.types.is_numeric_dtype(s):
+            unique_vals = s.dropna().unique()
+            if set(unique_vals).issubset({0, 1, 0.0, 1.0}):
+                return s.fillna(0).astype(int)
+        
+        s_str = s.astype(str)
+        if self.positive_label is not None and str(self.positive_label) in s_str.values:
+            return (s_str == str(self.positive_label)).astype(int)
+            
+        factorized, _ = pd.factorize(s)
+        return pd.Series(factorized, index=s.index)
+
     def _normalize_sensitive_feature(self, series: pd.Series) -> pd.Series:
         """Normalize sensitive feature for fairlearn constraints.
 
@@ -129,7 +144,7 @@ class BiasMitigationEngine:
         print("PHASE 1: EVALUATING BASELINE BIAS")
         print("=" * 60)
         
-        y = self.df[self.target_col].astype(int)
+        y = self._normalize_target(self.df[self.target_col])
         evaluation = {}
         
         for attr in self.protected_attributes:
@@ -236,7 +251,7 @@ class BiasMitigationEngine:
         
         # Prepare data
         X = self.df.drop(columns=[self.target_col])
-        y = self.df[self.target_col].astype(int)
+        y = self._normalize_target(self.df[self.target_col])
         
         print(f"\n📂 Data split: {test_size*100:.0f}% test, {(1-test_size)*100:.0f}% train")
         
@@ -354,11 +369,13 @@ class BiasMitigationEngine:
     
     # ========== PHASE 3: RE-EVALUATE AFTER MITIGATION ==========
     
-    def evaluate_mitigated_bias(self, mitigation_results: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_mitigated_bias(self, mitigation_results: Dict[str, Any], baseline_evaluation: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         PHASE 3: Re-evaluate bias AFTER applying mitigation.
         
         Uses same metrics as Phase 1 but on mitigated predictions.
+        If baseline_evaluation is provided, attributes that were not mitigated
+        will simply inherit their baseline metrics to prevent nulls.
         
         Returns:
             {
@@ -435,6 +452,13 @@ class BiasMitigationEngine:
             print(f"  Equalized Odds Difference: {eod_after:.4f} {attr_metrics['equalized_odds_difference']['interpretation']}")
             
             evaluation_after[attr] = attr_metrics
+            
+        # Fallback to baseline metrics for unmitigated attributes
+        if baseline_evaluation and "bias_metrics" in baseline_evaluation:
+            for attr, baseline_metrics in baseline_evaluation["bias_metrics"].items():
+                if attr not in evaluation_after:
+                    print(f"\n📌 {attr} was not mitigated; carrying over baseline metrics.")
+                    evaluation_after[attr] = baseline_metrics
         
         overall_status = self._determine_overall_status(evaluation_after)
         print(f"\n📌 Overall Status: {overall_status}")
@@ -476,7 +500,8 @@ class BiasMitigationEngine:
         
         for attr in baseline_metrics:
             if attr not in mitigated_metrics:
-                continue
+                # If it's completely missing, we treat after as before to avoid nulls
+                mitigated_metrics[attr] = baseline_metrics[attr]
             
             print(f"\n📈 {attr} - Before/After Comparison:")
             

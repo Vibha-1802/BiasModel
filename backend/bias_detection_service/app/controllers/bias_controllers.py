@@ -396,6 +396,10 @@ async def analyze_dataset_controller(file, include_full: bool = False):
                 contents = await file.read()
                 df = pd.read_csv(StringIO(contents.decode("utf-8")))
                 
+                # Inject target variable if missing from LLM response
+                if "target_variable" not in bias_plan:
+                    bias_plan["target_variable"] = stats.get("target_analysis", {}).get("target_column")
+                
                 # Initialize mitigation engine
                 engine = BiasMitigationEngine(df, bias_plan)
                 
@@ -410,7 +414,8 @@ async def analyze_dataset_controller(file, include_full: bool = False):
                 
                 # PHASE 3: Re-evaluate after mitigation
                 mitigated_evaluation = engine.evaluate_mitigated_bias(
-                    mitigation_results.get("mitigation_results", {})
+                    mitigation_results.get("mitigation_results", {}),
+                    baseline_evaluation
                 )
                 
                 # PHASE 4: Generate comprehensive report

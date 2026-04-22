@@ -29,6 +29,21 @@ class BiasMitigationEngine:
         self.positive_label = bias_plan.get("positive_outcome_label")
         self.recommended_metrics = bias_plan.get("recommended_detection_metrics", [])
         self.mitigation_methods = bias_plan.get("recommended_mitigation", {})
+
+    def _normalize_target(self, series: pd.Series) -> pd.Series:
+        """Robustly normalize target column to 0/1 integers."""
+        s = series.copy()
+        if pd.api.types.is_numeric_dtype(s):
+            unique_vals = s.dropna().unique()
+            if set(unique_vals).issubset({0, 1, 0.0, 1.0}):
+                return s.fillna(0).astype(int)
+        
+        s_str = s.astype(str)
+        if self.positive_label is not None and str(self.positive_label) in s_str.values:
+            return (s_str == str(self.positive_label)).astype(int)
+            
+        factorized, _ = pd.factorize(s)
+        return pd.Series(factorized, index=s.index)
     
     # ========== EVALUATION PHASE ==========
     
@@ -37,7 +52,7 @@ class BiasMitigationEngine:
         Step 1: Evaluate bias using recommended metrics
         Returns metrics BEFORE mitigation
         """
-        y = self.df[self.target_col].astype(int)
+        y = self._normalize_target(self.df[self.target_col])
         evaluation = {}
         
         for attr in self.protected_attributes:
@@ -106,9 +121,10 @@ class BiasMitigationEngine:
         Reweighing: Assigns weights to training samples to reduce bias
         """
         
+        
         # Split data
         X = self.df.drop(columns=[self.target_col])
-        y = self.df[self.target_col].astype(int)
+        y = self._normalize_target(self.df[self.target_col])
         
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=42
@@ -212,8 +228,16 @@ class BiasMitigationEngine:
                 "passed": abs(eod_after) < 0.10,
                 "interpretation": self._interpret_eod(eod_after)
             }
+            print(f"  Equalized Odds Difference: {eod_after:.4f} {attr_metrics['equalized_odds_difference']['interpretation']}")
             
             evaluation_after[attr] = attr_metrics
+            
+        # Fallback to baseline metrics for unmitigated attributes
+        if baseline_evaluation and "bias_metrics" in baseline_evaluation:
+            for attr, baseline_metrics in baseline_evaluation["bias_metrics"].items():
+                if attr not in evaluation_after:
+                    print(f"\n📌 {attr} was not mitigated; carrying over baseline metrics.")
+                    evaluation_after[attr] = baseline_metrics
         
         return {
             "phase": "post_mitigation_evaluation",
@@ -238,7 +262,8 @@ class BiasMitigationEngine:
         
         for attr in baseline_metrics:
             if attr not in mitigated_metrics:
-                continue
+                # If it's completely missing, we treat after as before to avoid nulls
+                mitigated_metrics[attr] = baseline_metrics[attr]
             
             improvement = {
                 "statistical_parity_difference": {
