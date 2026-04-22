@@ -1,0 +1,10 @@
+venv
+.env
+datasets/
+prepro_doc/
+node_modules
+seedAdmin.js
+__pycache__/
+venv
+**/venv/
+.venv
