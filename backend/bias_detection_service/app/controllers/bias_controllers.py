@@ -257,6 +257,9 @@ def _build_summary_response(stats: dict) -> dict:
             "columns": stats.get("dataset_fundamentals", {}).get("total_columns"),
             "target_column": stats.get("target_analysis", {}).get("target_column"),
         },
+        "dataset_fundamentals": stats.get("dataset_fundamentals", {}),
+        "numerical_summary": stats.get("numerical_summary", {}),
+        "feature_stats": stats.get("feature_stats", {}),
         "bias_plan": {
             "dataset_domain": stats.get("bias_plan", {}).get("dataset_domain"),
             "protected_attributes": stats.get("bias_plan", {}).get("protected_attributes", []),
