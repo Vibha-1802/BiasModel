@@ -314,6 +314,7 @@ async def analyze_dataset(file):
             )
             if resp.status_code == 200:
                 schema = resp.json()
+                print(f"LLM Response Schema: {schema}")
                 target_column = schema.get("target_column")
                 protected_columns = schema.get("protected_columns", [])
                 dataset_domain = schema.get("dataset_domain", "unknown")
@@ -321,10 +322,13 @@ async def analyze_dataset(file):
                 
                 # Validate the LLM output against actual columns
                 if target_column not in column_names:
+                    print(f"Target column '{target_column}' not in {column_names}")
                     target_column = None
                 protected_columns = [col for col in protected_columns if col in column_names]
+            else:
+                print(f"LLM API Error: {resp.status_code} - {resp.text}")
     except Exception as e:
-        print(f"LLM Schema inference failed: {e}")
+        print(f"LLM Schema inference failed with exception: {e}")
         
     # Fallback if LLM fails or doesn't find target
     if not target_column:

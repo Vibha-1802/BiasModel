@@ -96,6 +96,10 @@ async def infer_schema(payload: InferSchemaRequest) -> dict[str, Any]:
         "You are a data science expert. Given the columns and sample data of a dataset, "
         "infer the target variable (the outcome being predicted) and the protected demographic attributes "
         "(features that could lead to bias if used improperly, e.g. age, gender, race). "
+        "CRITICAL INSTRUCTIONS FOR TARGET VARIABLE: "
+        "1. The target is the ultimate business outcome (e.g., 'Loan_Status', 'Approved', 'Defaulted', 'Hired'). "
+        "2. Do NOT confuse independent features/inputs (like 'Credit_History', 'Credit_Score', 'Income') with the final target outcome. "
+        "3. The target variable is very often the LAST column in the dataset. "
         "Also infer the domain and whether the dataset already contains model predictions. "
         "Return the exact column names."
     )

@@ -84,9 +84,12 @@ class BiasAnalysisPlan(BaseModel):
 
 
 class DatasetSchema(BaseModel):
+    reasoning: str = Field(
+        description="Think step-by-step to identify the ultimate business outcome column (the target) and the protected demographic columns. Compare the candidates before deciding."
+    )
     target_column: str | None = Field(
         default=None,
-        description="The most likely target variable or business outcome being predicted (e.g. approved, defaulted, hired, churned, price, etc.)"
+        description="The ultimate business outcome to predict (e.g. Loan_Status, Approved). Crucial: Do NOT select input features like 'Credit_History', 'Credit_Score', or 'Income'. The target is usually the last column."
     )
     protected_columns: list[str] = Field(
         default_factory=list,
