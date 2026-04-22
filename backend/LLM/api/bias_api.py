@@ -7,7 +7,10 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from agent.orchestrator import bias_agent
+from agent.schemas import DatasetSchema
 from fairlearn_mitigation.dataset_formatter import format_bias_analysis_payload
+from langchain_core.messages import SystemMessage, HumanMessage
+from llm.client import llm
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +48,11 @@ class AnalyzeBiasRequest(BaseModel):
         default=None,
         description="Raw dataset statistics payload from the dataset analysis service.",
     )
+
+
+class InferSchemaRequest(BaseModel):
+    columns: list[str] = Field(description="List of column names in the dataset.")
+    sample_data: list[dict[str, Any]] = Field(description="A few rows of sample data as dictionaries.")
 
 
 @app.post("/analyze")
@@ -86,3 +94,29 @@ async def analyze_bias(payload: AnalyzeBiasRequest) -> dict[str, Any]:
         status_code=400,
         detail="Provide either analysis_data for structured analysis or user_query for a text report.",
     )
+
+@app.post("/infer_schema")
+async def infer_schema(payload: InferSchemaRequest) -> dict[str, Any]:
+    system_prompt = (
+        "You are a data science expert. Given the columns and sample data of a dataset, "
+        "infer the target variable (the outcome being predicted) and the protected demographic attributes "
+        "(features that could lead to bias if used improperly, e.g. age, gender, race). "
+        "CRITICAL INSTRUCTIONS FOR TARGET VARIABLE: "
+        "1. The target is the ultimate business outcome (e.g., 'Loan_Status', 'Approved', 'Defaulted', 'Hired'). "
+        "2. Do NOT confuse independent features/inputs (like 'Credit_History', 'Credit_Score', 'Income') with the final target outcome. "
+        "3. The target variable is very often the LAST column in the dataset. "
+        "Also infer the domain and whether the dataset already contains model predictions. "
+        "Return the exact column names."
+    )
+    human_msg = f"Columns: {payload.columns}\nSample Data:\n{payload.sample_data}"
+    
+    try:
+        structured_llm = llm.with_structured_output(DatasetSchema)
+        result: DatasetSchema = structured_llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=human_msg)
+        ])
+        return result.model_dump()
+    except Exception as e:
+        logger.error(f"Failed to infer schema: {e}")
+        raise HTTPException(status_code=500, detail="Failed to infer schema using LLM.")
