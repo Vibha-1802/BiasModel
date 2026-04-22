@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from agent.orchestrator import bias_agent
-from services.dataset_formatter import format_bias_analysis_payload
+from fairlearn_mitigation.dataset_formatter import format_bias_analysis_payload
 
 # Configure logging
 logging.basicConfig(

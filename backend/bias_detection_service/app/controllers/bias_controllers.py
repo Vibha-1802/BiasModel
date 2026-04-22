@@ -15,6 +15,31 @@ except ImportError as e:
     FAIRLEARN_AVAILABLE = False
     BiasMitigationEngine = None
 
+# Import AIF360 engine
+try:
+    from app.services.aif_mitigation import AIFMitigationEngine
+    AIF360_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️  AIF360 not available: {e}")
+    AIF360_AVAILABLE = False
+    AIFMitigationEngine = None
+
+def _compare_mitigation_results(fairlearn_res, aif_res):
+    f_metrics = fairlearn_res.get("phase_4_report", {}).get("summary", {})
+    a_metrics = aif_res.get("phase_4_report", {}).get("summary", {})
+    
+    f_improved = f_metrics.get("total_metrics_improved", 0)
+    a_improved = a_metrics.get("total_metrics_improved", 0)
+    f_passed = f_metrics.get("total_metrics_passed", 0)
+    a_passed = a_metrics.get("total_metrics_passed", 0)
+    
+    if a_passed > f_passed:
+        return "aif_mitigation"
+    elif a_passed == f_passed and a_improved > f_improved:
+        return "aif_mitigation"
+    return "fairlearn_mitigation"
+
+
 LLM_SERVICE_URL = "http://localhost:8001/analyze"
 
 DETECTION_METRIC_CATALOG = {
@@ -219,7 +244,8 @@ def _select_failing_attributes(baseline: dict) -> list[str]:
 
 def _build_summary_response(stats: dict) -> dict:
     """Return lightweight response for default mode."""
-    fair = (stats.get("fairlearn_mitigation") or {}) if isinstance(stats, dict) else {}
+    opt_algo = stats.get("optimal_mitigation", {}).get("selected_algorithm", "fairlearn_mitigation")
+    fair = (stats.get(opt_algo) or stats.get("fairlearn_mitigation") or {}) if isinstance(stats, dict) else {}
     phase1 = fair.get("phase_1_baseline", {}) if isinstance(fair, dict) else {}
     phase2 = fair.get("phase_2_mitigation", {}) if isinstance(fair, dict) else {}
     phase3 = fair.get("phase_3_post_mitigation", {}) if isinstance(fair, dict) else {}
@@ -238,7 +264,10 @@ def _build_summary_response(stats: dict) -> dict:
             "recommended_mitigation": stats.get("bias_plan", {}).get("recommended_mitigation", {}),
         },
         "fairness_taxonomy": _build_fairness_taxonomy(stats.get("bias_plan", {})),
-        "fairlearn_mitigation": {
+        "optimal_mitigation_metadata": {
+             "selected_algorithm": opt_algo
+        },
+        "optimal_mitigation": {
             "phase_1_status": phase1.get("overall_status"),
             "phase_2_method": phase2.get("mitigation_method"),
             "phase_2_successful_attributes": phase2.get("successful_attributes", []),
@@ -246,7 +275,7 @@ def _build_summary_response(stats: dict) -> dict:
             "phase_3_status": phase3.get("overall_status"),
             "phase_4_summary": phase4.get("summary", {}),
         },
-        "reporting_pack": _build_visualization_pack(stats),
+        "reporting_pack": stats.get("reporting_pack", {}),
     }
 
 
@@ -287,9 +316,9 @@ def _build_fairness_taxonomy(bias_plan: dict) -> dict:
     }
 
 
-def _build_visualization_pack(stats: dict) -> dict:
+def _build_visualization_pack(stats: dict, best_algo: str = "fairlearn_mitigation") -> dict:
     """Curated, chart-friendly payload for dashboards and reports."""
-    fair = (stats.get("fairlearn_mitigation") or {}) if isinstance(stats, dict) else {}
+    fair = (stats.get(best_algo) or {}) if isinstance(stats, dict) else {}
     phase1 = fair.get("phase_1_baseline", {}) if isinstance(fair, dict) else {}
     phase2 = fair.get("phase_2_mitigation", {}) if isinstance(fair, dict) else {}
     phase3 = fair.get("phase_3_post_mitigation", {}) if isinstance(fair, dict) else {}
@@ -386,13 +415,11 @@ async def analyze_dataset_controller(file, include_full: bool = False):
                     "details": str(llm_err)
                 }
         
-        # 3. Apply FairLearn mitigation if available and bias_plan is valid
-        if FAIRLEARN_AVAILABLE and BiasMitigationEngine is not None and bias_plan and isinstance(bias_plan, dict) and not bias_plan.get("error"):
+        # 3. Apply FairLearn and AIF360 mitigation if available and bias_plan is valid
+        if bias_plan and isinstance(bias_plan, dict) and not bias_plan.get("error"):
             try:
                 # The file stream was already consumed by analyze_dataset; rewind before reading again.
                 await file.seek(0)
-
-                # Load the CSV data again
                 contents = await file.read()
                 df = pd.read_csv(StringIO(contents.decode("utf-8")))
                 
@@ -400,48 +427,73 @@ async def analyze_dataset_controller(file, include_full: bool = False):
                 if "target_variable" not in bias_plan:
                     bias_plan["target_variable"] = stats.get("target_analysis", {}).get("target_column")
                 
-                # Initialize mitigation engine
-                engine = BiasMitigationEngine(df, bias_plan)
+                fairlearn_results = None
+                aif_results = None
                 
-                # PHASE 1: Evaluate baseline bias
-                baseline_evaluation = engine.evaluate_baseline_bias()
-
-                # Automatically mitigate only attributes failing baseline fairness metrics.
-                failing_attributes = _select_failing_attributes(baseline_evaluation)
+                # Run FairLearn
+                if FAIRLEARN_AVAILABLE and BiasMitigationEngine is not None:
+                    try:
+                        engine = BiasMitigationEngine(df, bias_plan)
+                        baseline_eval = engine.evaluate_baseline_bias()
+                        failing_attributes = _select_failing_attributes(baseline_eval)
+                        mitigation_res = engine.apply_reweighing(target_attributes=failing_attributes)
+                        mitigated_eval = engine.evaluate_mitigated_bias(mitigation_res.get("mitigation_results", {}), baseline_eval)
+                        mitigation_rep = engine.generate_mitigation_report(baseline_eval, mitigated_eval)
+                        
+                        fairlearn_results = {
+                            "phase_1_baseline": baseline_eval,
+                            "phase_2_mitigation": _compact_phase2_results(mitigation_res),
+                            "phase_3_post_mitigation": mitigated_eval,
+                            "phase_4_report": _compact_phase4_report(mitigation_rep),
+                        }
+                        stats["fairlearn_mitigation"] = fairlearn_results
+                    except Exception as mitigation_err:
+                        stats["fairlearn_mitigation"] = {"error": f"FairLearn mitigation failed: {str(mitigation_err)}"}
                 
-                # PHASE 2: Apply reweighing mitigation
-                mitigation_results = engine.apply_reweighing(target_attributes=failing_attributes)
+                # Run AIF360
+                if AIF360_AVAILABLE and AIFMitigationEngine is not None:
+                    try:
+                        engine = AIFMitigationEngine(df, bias_plan)
+                        baseline_eval = engine.evaluate_baseline_bias()
+                        failing_attributes = _select_failing_attributes(baseline_eval)
+                        mitigation_res = engine.apply_reweighing(target_attributes=failing_attributes)
+                        mitigated_eval = engine.evaluate_mitigated_bias(mitigation_res.get("mitigation_results", {}), baseline_eval)
+                        mitigation_rep = engine.generate_mitigation_report(baseline_eval, mitigated_eval)
+                        
+                        aif_results = {
+                            "phase_1_baseline": baseline_eval,
+                            "phase_2_mitigation": _compact_phase2_results(mitigation_res),
+                            "phase_3_post_mitigation": mitigated_eval,
+                            "phase_4_report": _compact_phase4_report(mitigation_rep),
+                        }
+                        stats["aif_mitigation"] = aif_results
+                    except Exception as mitigation_err:
+                        stats["aif_mitigation"] = {"error": f"AIF360 mitigation failed: {str(mitigation_err)}"}
                 
-                # PHASE 3: Re-evaluate after mitigation
-                mitigated_evaluation = engine.evaluate_mitigated_bias(
-                    mitigation_results.get("mitigation_results", {}),
-                    baseline_evaluation
-                )
-                
-                # PHASE 4: Generate comprehensive report
-                mitigation_report = engine.generate_mitigation_report(
-                    baseline_evaluation,
-                    mitigated_evaluation
-                )
-                
-                # Add mitigation results to response
-                stats["fairlearn_mitigation"] = {
-                    "phase_1_baseline": baseline_evaluation,
-                    "phase_2_mitigation": _compact_phase2_results(mitigation_results),
-                    "phase_3_post_mitigation": mitigated_evaluation,
-                    "phase_4_report": _compact_phase4_report(mitigation_report),
-                }
-                stats["reporting_pack"] = _build_visualization_pack(stats)
-                
-            except Exception as mitigation_err:
-                stats["fairlearn_mitigation"] = {
-                    "error": f"FairLearn mitigation failed: {str(mitigation_err)}",
-                    "details": str(mitigation_err)
-                }
-        elif not FAIRLEARN_AVAILABLE:
-            stats["fairlearn_mitigation"] = {
-                "warning": "FairLearn not installed. Bias mitigation skipped.",
-                "info": "Install with: pip install fairlearn==0.10.0"
+                # Compare and build reporting pack
+                if fairlearn_results and not stats["fairlearn_mitigation"].get("error") and aif_results and not stats["aif_mitigation"].get("error"):
+                    best_algo = _compare_mitigation_results(fairlearn_results, aif_results)
+                    stats["optimal_mitigation"] = {
+                        "selected_algorithm": best_algo,
+                        "data": stats[best_algo]
+                    }
+                    stats["reporting_pack"] = _build_visualization_pack(stats, best_algo=best_algo)
+                elif fairlearn_results and not stats["fairlearn_mitigation"].get("error"):
+                    stats["optimal_mitigation"] = {"selected_algorithm": "fairlearn_mitigation", "data": stats["fairlearn_mitigation"]}
+                    stats["reporting_pack"] = _build_visualization_pack(stats, best_algo="fairlearn_mitigation")
+                elif aif_results and not stats["aif_mitigation"].get("error"):
+                    stats["optimal_mitigation"] = {"selected_algorithm": "aif_mitigation", "data": stats["aif_mitigation"]}
+                    stats["reporting_pack"] = _build_visualization_pack(stats, best_algo="aif_mitigation")
+                else:
+                    stats["reporting_pack"] = _build_visualization_pack(stats)
+                    
+            except Exception as e:
+                 print(f"Dataset reading failed during mitigation setup: {str(e)}")
+                 
+        if not FAIRLEARN_AVAILABLE and not AIF360_AVAILABLE:
+            stats["mitigation_status"] = {
+                "warning": "No mitigation engines available.",
+                "info": "Install FairLearn or AIF360."
             }
         
         payload = stats if include_full else _build_summary_response(stats)
