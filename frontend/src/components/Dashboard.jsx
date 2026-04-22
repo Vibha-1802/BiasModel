@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshCw, BarChart3, Zap, BookOpen, Database } from 'lucide-react';
+import { RefreshCw, BarChart3, Zap, BookOpen, Database, AlertTriangle } from 'lucide-react';
 import DatasetOverview from './DatasetOverview';
 import FeatureStatsTable from './FeatureStatsTable';
 import BiasMatrixChart from './BiasMatrixChart';
@@ -141,6 +141,3 @@ export default function Dashboard({ data, onReset }) {
     </div>
   );
 }
-
-// Import icon at top
-import { AlertTriangle } from 'lucide-react';

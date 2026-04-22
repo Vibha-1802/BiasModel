@@ -34,7 +34,7 @@ export default function MitigationStatus({ fairlearnMitigation, reportingPack })
       <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', marginBottom: '16px' }}>
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-bold flex items-center gap-2">
-            <span style={{ fontSize: '18px' }}>📊</span>
+            <span style={{ fontSize: '18px' }}></span>
             Phase 1: Baseline Bias Evaluation
           </h3>
           {fairlearnMitigation.phase_1_status && (
@@ -58,7 +58,7 @@ export default function MitigationStatus({ fairlearnMitigation, reportingPack })
       <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', marginBottom: '16px' }}>
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-bold flex items-center gap-2">
-            <span style={{ fontSize: '18px' }}>🔧</span>
+            <span style={{ fontSize: '18px' }}></span>
             Phase 2: Mitigation Intervention
           </h3>
           {fairlearnMitigation.phase_2_method && (
@@ -137,7 +137,7 @@ export default function MitigationStatus({ fairlearnMitigation, reportingPack })
       <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', marginBottom: '16px' }}>
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-bold flex items-center gap-2">
-            <span style={{ fontSize: '18px' }}>📈</span>
+            <span style={{ fontSize: '18px' }}></span>
             Phase 3: Post-Mitigation Evaluation
           </h3>
           {fairlearnMitigation.phase_3_status && (
