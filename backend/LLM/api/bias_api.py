@@ -55,16 +55,21 @@ async def analyze_bias(payload: AnalyzeBiasRequest) -> dict[str, Any]:
     - user_query only → route and return a free-text report.
     """
     if payload.analysis_data is not None:
-        formatted = format_bias_analysis_payload(payload.analysis_data)
+        fundamentals = payload.analysis_data.get("dataset_fundamentals", {})
         inputs: dict[str, Any] = {
             "query": payload.user_query or "Analyze this dataset for bias",
-            "category": "dataset",   # pre-set so the router skips its LLM call
-            "analysis_data": formatted,
+            "category": "dataset",
+            "dataset_summary": {
+                "rows": fundamentals.get("total_rows", 0),
+                "columns": fundamentals.get("column_names", []),
+                "sample": fundamentals.get("sample_data", [])
+            },
+            "bias_metrics": payload.analysis_data,
             "bias_report": "",
             "bias_plan": None,
         }
         result = await bias_agent.ainvoke(inputs)
-        return result["bias_plan"]
+        return result.get("bias_plan") or {"error": "LLM failed to generate a bias plan. Please check GROQ_API_KEY and model availability."}
 
     if payload.user_query:
         inputs = {

@@ -617,6 +617,7 @@ async def analyze_dataset(file):
             "total_rows": total_rows,
             "total_columns": len(column_names),
             "column_names": column_names,
+            "sample_data": df.head(5).to_dict(orient="records"),
             "column_dtypes": column_dtypes,
             "missing_values": missing_values,
             "duplicate_rows": {
