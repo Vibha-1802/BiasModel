@@ -1,41 +1,307 @@
-import pandas as pd
-from io import StringIO
-from fastapi import HTTPException
-
-MAX_FILE_SIZE_MB = 10  
+from __future__ import annotations
 
 import math
+from io import StringIO
+from itertools import combinations
+
 import numpy as np
+import pandas as pd
+from fastapi import HTTPException
+from scipy.stats import chi2_contingency, pointbiserialr
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+MAX_FILE_SIZE_MB = 10
+
+TARGET_KEYWORDS = [
+    "label", "target", "outcome", "approved", "hired",
+    "shortlisted", "shortlist", "selected", "decision",
+    "admitted", "granted", "accepted", "rejected",
+    "churned", "defaulted", "readmitted", "attrition",
+]
+
+# Substring match against column name parts — keep this comprehensive.
+PROTECTED_CANDIDATES = [
+    "gender", "sex", "race", "ethnicity", "age",
+    "nationality", "religion", "disability", "marital",
+    "income", "zip", "zipcode", "caste",
+]
+
+DOMAIN_KEYWORDS: dict[str, list[str]] = {
+    "credit_scoring": ["loan", "credit", "approved", "approval", "interest", "default"],
+    "hiring": [
+        "hire", "hired", "candidate", "resume", "job", "interview", "employment",
+        "shortlist", "shortlisted", "screening", "applicant", "recruited", "attrition",
+    ],
+    "healthcare": [
+        "patient", "diagnosis", "hospital", "treatment", "medical", "health",
+        "readmit", "readmission", "clinical",
+    ],
+    "criminal_justice": ["recidivism", "arrest", "crime", "offense", "sentence", "parole", "compas"],
+    "housing": ["mortgage", "housing", "rent", "tenant", "property", "home"],
+}
+
+FAVORABLE_LABEL_HINTS = {
+    "1", "true", "yes", "approved", "approve", "accepted",
+    "selected", "shortlisted", "hired", "admitted", "granted",
+    "pass", "positive", "favorable", "good",
+}
+
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
+def _f(val) -> float:
+    """Convert any pandas/numpy scalar to Python float.
+    pandas 3.x stubs type .skew()/.kurtosis() as the broad Scalar union (which
+    includes complex), so float() raises a pyright error. This helper isolates
+    the single suppression and is safe at runtime because numeric Series always
+    produce real-valued moments."""
+    return float(val)  # type: ignore[arg-type]
+
 
 def clean_nan(obj):
     if isinstance(obj, dict):
         return {k: clean_nan(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [clean_nan(v) for v in obj]
-    elif isinstance(obj, (float, np.float32, np.float64)):
+    if isinstance(obj, (float, np.floating)):
         if math.isnan(obj) or math.isinf(obj):
             return None
         return float(obj)
-    elif isinstance(obj, (np.integer,)):
+    if isinstance(obj, np.integer):
         return int(obj)
-    else:
-        return obj
-    
+    return obj
+
+
+def is_binary_series(series: pd.Series) -> bool:
+    unique_vals = set(series.dropna().unique().tolist())
+    return len(unique_vals) == 2 and unique_vals.issubset({0, 1, 0.0, 1.0, False, True})
+
+
+def is_categorical(series: pd.Series) -> bool:
+    return (
+        pd.api.types.is_object_dtype(series)
+        or isinstance(series.dtype, pd.CategoricalDtype)
+        or pd.api.types.is_bool_dtype(series)
+    )
+
+
+def _col_matches_keywords(col_lower: str, keywords: list[str]) -> bool:
+    """Match keyword against whole column name or any underscore/hyphen-separated part."""
+    parts = set(col_lower.replace("-", "_").split("_"))
+    return any(kw in parts or kw == col_lower for kw in keywords)
+
+
+def _protected_cols(df: pd.DataFrame) -> list[str]:
+    return [
+        col for col in df.columns
+        if _col_matches_keywords(col.lower(), PROTECTED_CANDIDATES)
+    ]
+
+
+def infer_domain(column_names: list[str]) -> str:
+    lowered = [col.lower() for col in column_names]
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        if any(kw in col for col in lowered for kw in keywords):
+            return domain
+    return "unknown"
+
+# ---------------------------------------------------------------------------
+# Target / label inference
+# ---------------------------------------------------------------------------
+
+def detect_target_column(df: pd.DataFrame) -> str | None:
+    # Priority 1: whole-part keyword match (avoids "selected_features" matching "selected")
+    for col in df.columns:
+        if _col_matches_keywords(col.lower(), TARGET_KEYWORDS):
+            return col
+    # Priority 2: first binary 0/1 numeric column as fallback
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]) and is_binary_series(df[col]):
+            return col
+    # Priority 3: use the last column as a final guess
+    return df.columns[-1] if not df.empty else None
+
+
+def infer_target_type(series: pd.Series) -> str:
+    n_unique = series.dropna().nunique()
+    if n_unique == 2:
+        return "binary"
+    # Numeric with many unique values → continuous; few unique values → ordinal/multiclass
+    if pd.api.types.is_numeric_dtype(series):
+        return "continuous" if n_unique > 20 else "multiclass"
+    return "multiclass" if n_unique > 2 else "continuous"
+
+
+def infer_positive_class_label(series: pd.Series):
+    non_null = series.dropna()
+    if non_null.empty:
+        return None
+    lowered_map = {str(val).strip().lower(): val for val in non_null.unique()}
+    for hint in FAVORABLE_LABEL_HINTS:
+        if hint in lowered_map:
+            return lowered_map[hint]
+    if is_binary_series(non_null):
+        return 1
+    counts = non_null.value_counts()
+    return counts.idxmin() if len(counts) == 2 else counts.idxmax()
+
+
+def to_binary_indicator(series: pd.Series, positive_label) -> pd.Series | None:
+    if positive_label is None:
+        return None
+    return (series == positive_label).astype(int)
+
+# ---------------------------------------------------------------------------
+# Binning helpers
+# ---------------------------------------------------------------------------
+
+def qcut_series(series: pd.Series, q: int = 4) -> pd.Series | None:
+    clean = series.dropna()
+    if clean.empty or clean.nunique() < 2:
+        return None
+    try:
+        return pd.qcut(clean, q=min(q, clean.nunique()), duplicates="drop")
+    except ValueError:
+        return None
+
+
+def build_quantile_bins(series: pd.Series) -> dict:
+    quantile_bins = qcut_series(series, q=4)
+    if quantile_bins is None:
+        return {}
+    counts = quantile_bins.value_counts().sort_index()
+    return {str(interval): int(count) for interval, count in counts.items()}
+
+
+def _group_series_for_protected(df: pd.DataFrame, col: str) -> pd.Series:
+    """
+    Return the grouping series for a protected attribute column.
+    Numerical columns are binned into quartiles to avoid one-group-per-value explosion.
+    """
+    series = df[col]
+    if pd.api.types.is_numeric_dtype(series) and not is_binary_series(series):
+        binned = qcut_series(series, q=4)
+        if binned is not None:
+            return binned.astype(str)
+    return series
+
+# ---------------------------------------------------------------------------
+# Association / correlation
+# ---------------------------------------------------------------------------
+
+def cramers_v(confusion_matrix: pd.DataFrame) -> float | None:
+    if confusion_matrix.empty or min(confusion_matrix.shape) < 2:
+        return None
+    chi2 = chi2_contingency(confusion_matrix)[0]
+    n = confusion_matrix.sum().sum()
+    r, k = confusion_matrix.shape
+    denom = n * min(k - 1, r - 1)
+    if denom <= 0:
+        return None
+    return float(np.sqrt(chi2 / denom))
+
+
+def compute_association(left: pd.Series, right: pd.Series) -> dict | None:
+    aligned = pd.concat([left, right], axis=1).dropna()
+    if aligned.empty:
+        return None
+
+    x, y = aligned.iloc[:, 0], aligned.iloc[:, 1]
+
+    x_is_cat = is_categorical(x)
+    y_is_cat = is_categorical(y)
+    x_is_binary = is_binary_series(x) if (pd.api.types.is_numeric_dtype(x) or pd.api.types.is_bool_dtype(x)) else x.nunique() == 2
+    y_is_binary = is_binary_series(y) if (pd.api.types.is_numeric_dtype(y) or pd.api.types.is_bool_dtype(y)) else y.nunique() == 2
+
+    try:
+        # Continuous numeric vs binary (point-biserial)
+        if pd.api.types.is_numeric_dtype(x) and not x_is_binary and y_is_binary:
+            encoded = to_binary_indicator(y, infer_positive_class_label(y))
+            if encoded is None:
+                return None
+            corr, p = pointbiserialr(x, encoded)
+            return {"method": "point_biserial", "value": float(corr), "p_value": float(p)}
+
+        if pd.api.types.is_numeric_dtype(y) and not y_is_binary and x_is_binary:
+            encoded = to_binary_indicator(x, infer_positive_class_label(x))
+            if encoded is None:
+                return None
+            corr, p = pointbiserialr(y, encoded)
+            return {"method": "point_biserial", "value": float(corr), "p_value": float(p)}
+
+        # Both categorical → Cramér's V
+        if x_is_cat and y_is_cat:
+            ct = pd.crosstab(x, y)
+            if ct.empty or min(ct.shape) < 2:
+                return None
+            _, p, _, _ = chi2_contingency(ct)
+            v = cramers_v(ct)
+            if v is None:
+                return None
+            return {"method": "cramers_v", "value": v, "p_value": float(p)}
+
+        # Categorical vs numeric → if numeric is binary use it as-is, otherwise bin then Cramér's V.
+        # Binning a binary series (e.g. shortlisted 0/1) with qcut always collapses into 1 bin,
+        # making crosstab have shape (n,1) and returning None. Treat binary numerics as categorical.
+        if x_is_cat and pd.api.types.is_numeric_dtype(y):
+            if y_is_binary:
+                ct = pd.crosstab(x, y.astype(str))
+            else:
+                y_binned = qcut_series(y, q=10)
+                if y_binned is None:
+                    return None
+                ct = pd.crosstab(x.loc[y_binned.index], y_binned)
+            if ct.empty or min(ct.shape) < 2:
+                return None
+            _, p, _, _ = chi2_contingency(ct)
+            v = cramers_v(ct)
+            if v is None:
+                return None
+            method = "cramers_v" if y_is_binary else "cramers_v_binned"
+            return {"method": method, "value": v, "p_value": float(p)}
+
+        if y_is_cat and pd.api.types.is_numeric_dtype(x):
+            if x_is_binary:
+                ct = pd.crosstab(x.astype(str), y)
+            else:
+                x_binned = qcut_series(x, q=10)
+                if x_binned is None:
+                    return None
+                ct = pd.crosstab(x_binned, y.loc[x_binned.index])
+            if ct.empty or min(ct.shape) < 2:
+                return None
+            _, p, _, _ = chi2_contingency(ct)
+            v = cramers_v(ct)
+            if v is None:
+                return None
+            method = "cramers_v" if x_is_binary else "cramers_v_binned"
+            return {"method": method, "value": v, "p_value": float(p)}
+
+    except Exception:
+        return None
+
+    return None
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
 async def process_dataset(file):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
 
     contents = await file.read()
 
-    size_mb = len(contents) / (1024 * 1024)
-    if size_mb > MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Max allowed is {MAX_FILE_SIZE_MB} MB"
-        )
-
     if not contents:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(status_code=400, detail=f"File too large. Max allowed is {MAX_FILE_SIZE_MB} MB")
 
     try:
         df = pd.read_csv(StringIO(contents.decode("utf-8")))
@@ -45,115 +311,81 @@ async def process_dataset(file):
     if df.empty:
         raise HTTPException(status_code=400, detail="CSV has no data")
 
-    null_counts = df.isnull().sum().to_dict()
-
     return {
         "filename": file.filename,
         "rows": len(df),
         "columns": list(df.columns),
-        "missing_values": null_counts
+        "missing_values": df.isnull().sum().to_dict(),
     }
-
-import pandas as pd
-import numpy as np
-from io import StringIO
-from fastapi import HTTPException
-from scipy.stats import chi2_contingency, pointbiserialr
-
-TARGET_KEYWORDS = ["label", "target", "outcome", "approved", "hired"]
-PROTECTED_CANDIDATES = ["gender", "sex", "race", "ethnicity"]
-
-
-def detect_target_column(columns):
-    for col in columns:
-        for keyword in TARGET_KEYWORDS:
-            if keyword in col.lower():
-                return col
-    return None
-
-
-def cramers_v(confusion_matrix):
-    chi2 = chi2_contingency(confusion_matrix)[0]
-    n = confusion_matrix.sum().sum()
-    r, k = confusion_matrix.shape
-    return np.sqrt(chi2 / (n * (min(k - 1, r - 1))))
 
 
 async def analyze_dataset(file):
-
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV allowed")
 
     contents = await file.read()
-    df = pd.read_csv(StringIO(contents.decode("utf-8")))
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(status_code=400, detail=f"File too large. Max allowed is {MAX_FILE_SIZE_MB} MB")
+
+    try:
+        df = pd.read_csv(StringIO(contents.decode("utf-8")))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid CSV format")
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="CSV has no data")
 
     total_rows = len(df)
     column_names = list(df.columns)
-    protected_cols = [
-    col for col in df.columns
-    if any(pc in col.lower() for pc in PROTECTED_CANDIDATES)
-]
+    protected_columns = _protected_cols(df)
 
-    # ---------------- CATEGORY 1 ----------------
+    # ── CATEGORY 1: Dataset fundamentals ────────────────────────────────────
     column_dtypes = {
         col: "numerical" if pd.api.types.is_numeric_dtype(df[col]) else "categorical"
         for col in df.columns
     }
-
     missing_values = {
         col: {
             "count": int(df[col].isnull().sum()),
-            "percentage": float(df[col].isnull().mean() * 100)
+            "percentage": float(df[col].isnull().mean() * 100),
         }
         for col in df.columns
     }
+    duplicate_count = int(df.duplicated().sum())
 
-    duplicate_count = df.duplicated().sum()
-
-    # ---------------- CATEGORY 2 ----------------
-    target_column = detect_target_column(column_names)
+    # ── CATEGORY 2: Target analysis ─────────────────────────────────────────
+    target_column = detect_target_column(df)
     target_type = None
-    class_distribution = {}
+    class_distribution: dict = {}
     positive_class_label = None
     imbalance_ratio = None
     base_rate = None
 
     if target_column:
         target_series = df[target_column]
-        unique_vals = target_series.dropna().unique()
+        target_type = infer_target_type(target_series)
 
-        if len(unique_vals) == 2:
-            target_type = "binary"
-        elif len(unique_vals) > 2:
-            target_type = "multiclass"
-        else:
-            target_type = "continuous"
-
-        if target_type in ["binary", "multiclass"]:
+        if target_type in ("binary", "multiclass"):
             counts = target_series.value_counts()
             total = counts.sum()
-
             for cls, count in counts.items():
                 class_distribution[str(cls)] = {
                     "count": int(count),
-                    "percentage": float(count / total * 100)
+                    "percentage": float(count / total * 100),
                 }
-
-            majority = counts.max()
-            minority = counts.min()
-
+            majority, minority = int(counts.max()), int(counts.min())
             imbalance_ratio = float(majority / minority) if minority > 0 else None
-            positive_class_label = counts.idxmax()
-            base_rate = float(majority / total)
+            positive_class_label = infer_positive_class_label(target_series)
+            if positive_class_label is not None and positive_class_label in counts.index:
+                base_rate = float(counts[positive_class_label] / total)
 
-    # ---------------- CATEGORY 3 ----------------
-    numerical_summary = {}
-
+    # ── CATEGORY 3: Numerical summary ───────────────────────────────────────
+    numerical_summary: dict = {}
     for col in df.select_dtypes(include="number").columns:
         series = df[col].dropna()
-        if len(series) == 0:
+        if series.empty:
             continue
-
         numerical_summary[col] = {
             "min": float(series.min()),
             "max": float(series.max()),
@@ -162,144 +394,106 @@ async def analyze_dataset(file):
             "std": float(series.std()),
             "percentiles": {
                 "25": float(series.quantile(0.25)),
-                "50": float(series.quantile(0.5)),
+                "50": float(series.quantile(0.50)),
                 "75": float(series.quantile(0.75)),
-                "90": float(series.quantile(0.9)),
-                "95": float(series.quantile(0.95))
+                "90": float(series.quantile(0.90)),
+                "95": float(series.quantile(0.95)),
             },
-            "suggested_bins": {
-                "<25": int((series < 25).sum()),
-                "25-40": int(((series >= 25) & (series < 40)).sum()),
-                "40-60": int(((series >= 40) & (series < 60)).sum()),
-                ">60": int((series >= 60).sum())
-            }
+            "suggested_bins": build_quantile_bins(series),
         }
 
-    # ---------------- CATEGORY 4 ----------------
-    group_outcome_stats = {}
-    preliminary_bias_signals = {}
+    # ── CATEGORY 4: Group outcome stats ─────────────────────────────────────
+    # Numerical protected attributes are binned into quartiles so we never produce
+    # one-group-per-unique-value (which would create hundreds of tiny groups for
+    # float columns like age and break the LLM context).
+    group_outcome_stats: dict = {}
+    preliminary_bias_signals: dict = {}
 
     if target_column and target_type == "binary":
-        for col in column_names:
-            if any(pc in col.lower() for pc in PROTECTED_CANDIDATES):
+        target_indicator = to_binary_indicator(df[target_column], positive_class_label)
 
-                grouped = df.groupby(col)[target_column]
-                group_outcome_stats[col] = {}
+        for col in protected_columns:
+            group_series = _group_series_for_protected(df, col)
+            working = pd.DataFrame({
+                col: group_series,
+                "__t__": target_indicator,
+            }).dropna(subset=[col, "__t__"])
+            grouped = working.groupby(col)["__t__"].agg(["count", "sum", "mean"])
 
-                rates = []
+            col_stats: dict = {}
+            rates: list[float] = []
 
-                for group, values in grouped:
-                    count = len(values)
-                    positive = (values == positive_class_label).sum()
-                    rate = positive / count if count > 0 else 0
+            for grp, row in grouped.iterrows():
+                count = int(row["count"])
+                positive = int(row["sum"])
+                rate = float(row["mean"]) if count > 0 else 0.0
+                col_stats[str(grp)] = {
+                    "count": count,
+                    "positive_count": positive,
+                    "positive_rate": rate,
+                }
+                rates.append(rate)
 
-                    group_outcome_stats[col][str(group)] = {
-                        "count": int(count),
-                        "positive_rate": float(rate)
-                    }
+            group_outcome_stats[col] = col_stats
 
-                    rates.append(rate)
+            if rates:
+                max_r, min_r = max(rates), min(rates)
+                most_favored = max(col_stats, key=lambda k: col_stats[k]["positive_rate"])
+                least_favored = min(col_stats, key=lambda k: col_stats[k]["positive_rate"])
+                preliminary_bias_signals[col] = {
+                    "statistical_parity_difference": float(min_r - max_r),
+                    "disparate_impact_ratio": float(min_r / max_r) if max_r > 0 else None,
+                    "most_favored_group": most_favored,
+                    "least_favored_group": least_favored,
+                    "rate_spread": float(max_r - min_r),
+                }
 
-                if rates:
-                    max_r, min_r = max(rates), min(rates)
-
-                    preliminary_bias_signals[col] = {
-                        "statistical_parity_difference": float(max_r - min_r),
-                        "disparate_impact_ratio": float(min_r / max_r) if max_r > 0 else None
-                    }
-
-    # ---------------- CATEGORY 5 ----------------
-    feature_target_correlation = {}
-    protected_feature_correlations = {}
+    # ── CATEGORY 5: Correlations ─────────────────────────────────────────────
+    # Compute once and reuse in statistical_tests (avoids duplicate computation).
+    feature_target_correlation: dict = {}
+    protected_feature_correlations: dict = {}
 
     if target_column:
-
         for col in df.columns:
             if col == target_column:
                 continue
+            assoc = compute_association(df[col], df[target_column])
+            if assoc:
+                feature_target_correlation[col] = assoc
 
-            try:
-                if df[col].dtype == "object":
-                    contingency = pd.crosstab(df[col], df[target_column])
-                    stat, p, _, _ = chi2_contingency(contingency)
-
-                    feature_target_correlation[col] = {
-                        "method": "cramers_v",
-                        "value": float(cramers_v(contingency)),
-                        "p_value": float(p)
-                    }
-                else:
-                    if target_type == "binary":
-                        corr, p = pointbiserialr(df[col].fillna(0), df[target_column])
-                        feature_target_correlation[col] = {
-                            "method": "point_biserial",
-                            "value": float(corr),
-                            "p_value": float(p)
-                        }
-            except:
-                continue
-
-
-    # Protected vs feature (proxy detection)
-    for protected in protected_cols:
+    for protected in protected_columns:
         protected_feature_correlations[protected] = {}
-
         for col in df.columns:
             if col == protected:
                 continue
+            assoc = compute_association(df[protected], df[col])
+            if assoc:
+                protected_feature_correlations[protected][col] = assoc
 
-            try:
-                contingency = pd.crosstab(df[protected], df[col])
-                stat, p, _, _ = chi2_contingency(contingency)
+    # ── CATEGORY 6: Statistical tests ────────────────────────────────────────
+    # Reuse already-computed associations from feature_target_correlation.
+    statistical_tests: dict = {}
 
-                protected_feature_correlations[protected][col] = {
-                    "method": "cramers_v",
-                    "value": float(cramers_v(contingency)),
-                    "p_value": float(p)
-                }
-            except:
-                continue
+    for col, assoc in feature_target_correlation.items():
+        method = assoc["method"]
+        if method.startswith("cramers_v"):
+            statistical_tests[f"{col}_vs_target"] = {
+                "test": "chi_square",
+                "statistic": float(assoc["value"]),
+                "p_value": float(assoc["p_value"]),
+                "significant": bool(assoc["p_value"] < 0.05),
+                "effect_size": float(assoc["value"]),
+            }
+        else:
+            statistical_tests[f"{col}_vs_target"] = {
+                "test": "point_biserial",
+                "statistic": float(assoc["value"]),
+                "p_value": float(assoc["p_value"]),
+                "significant": bool(assoc["p_value"] < 0.05),
+            }
 
-    # ---------------- CATEGORY 6 ----------------
-    statistical_tests = {}
-
-    if target_column:
-
-        for col in df.columns:
-            if col == target_column:
-                continue
-
-            try:
-                if df[col].dtype == "object":
-
-                    contingency = pd.crosstab(df[col], df[target_column])
-                    stat, p, _, _ = chi2_contingency(contingency)
-
-                    statistical_tests[f"{col}_vs_target"] = {
-                        "test": "chi_square",
-                        "statistic": float(stat),
-                        "p_value": float(p),
-                        "significant": bool(p < 0.05),
-                        "effect_size": float(cramers_v(contingency))
-                    }
-
-                else:
-                    if target_type == "binary":
-                        corr, p = pointbiserialr(df[col].fillna(0), df[target_column])
-
-                        statistical_tests[f"{col}_vs_target"] = {
-                            "test": "point_biserial",
-                            "statistic": float(corr),
-                            "p_value": float(p),
-                            "significant": bool(p < 0.05)
-                        }
-
-            except:
-                continue
-
-
-    # ---------------- CATEGORY 7 ----------------
-    feature_stats = {}
+    # ── CATEGORY 7: Feature stats ─────────────────────────────────────────────
+    feature_stats: dict = {}
 
     for col in df.columns:
         series = df[col]
@@ -307,16 +501,11 @@ async def analyze_dataset(file):
 
         if pd.api.types.is_numeric_dtype(series):
             clean = series.dropna()
-
-            q1 = clean.quantile(0.25)
-            q3 = clean.quantile(0.75)
+            if clean.empty:
+                continue
+            q1, q3 = float(clean.quantile(0.25)), float(clean.quantile(0.75))
             iqr = q3 - q1
-
-            outliers = clean[
-                (clean < (q1 - 1.5 * iqr)) |
-                (clean > (q3 + 1.5 * iqr))
-            ]
-
+            outliers = clean[(clean < q1 - 1.5 * iqr) | (clean > q3 + 1.5 * iqr)]
             feature_stats[col] = {
                 "dtype": "numerical",
                 "min": float(clean.min()),
@@ -324,106 +513,97 @@ async def analyze_dataset(file):
                 "mean": float(clean.mean()),
                 "median": float(clean.median()),
                 "std": float(clean.std()),
-                "percentiles": {
-                    "25": float(q1),
-                    "50": float(clean.quantile(0.5)),
-                    "75": float(q3)
-                },
-                "skewness": float(clean.skew()),
-                "kurtosis": float(clean.kurtosis()),
+                "percentiles": {"25": q1, "50": float(clean.quantile(0.5)), "75": q3},
+                "skewness": _f(clean.skew()),
+                "kurtosis": _f(clean.kurtosis()),
                 "outlier_count": int(len(outliers)),
-                "missing_count": missing_count
+                "missing_count": missing_count,
             }
-
         else:
-            counts = series.value_counts()
+            # dropna=True so NaN is never sent as a category key to the LLM
+            counts = series.value_counts(dropna=True)
             total = counts.sum()
-
             feature_stats[col] = {
                 "dtype": "categorical",
-                "n_unique": int(series.nunique()),
-                "value_counts": counts.to_dict(),
-                "value_percentages": {
-                    str(k): float(v / total * 100) for k, v in counts.items()
-                },
-                "missing_count": missing_count
+                "n_unique": int(series.nunique(dropna=True)),
+                "value_counts": {str(k): int(v) for k, v in counts.items()},
+                "value_percentages": {str(k): float(v / total * 100) for k, v in counts.items()},
+                "missing_count": missing_count,
             }
 
-    # ---------------- CATEGORY 7 ----------------
-    feature_stats = {}
+    # ── CATEGORY 8: Intersectional groups ────────────────────────────────────
+    # All pairs of protected columns, not just the first two.
+    intersectional_groups: list = []
 
-    for col in df.columns:
-        series = df[col]
-        if pd.api.types.is_numeric_dtype(series):
-            clean = series.dropna()
-            feature_stats[col] = {
-                "dtype": "numerical",
-                "mean": float(clean.mean()),
-                "std": float(clean.std()),
-                "skewness": float(clean.skew())
-            }
-        else:
-            feature_stats[col] = {
-                "dtype": "categorical",
-                "n_unique": int(series.nunique())
-            }
+    if target_column and target_type == "binary" and len(protected_columns) >= 2:
+        target_indicator = to_binary_indicator(df[target_column], positive_class_label)
 
-    # ---------------- CATEGORY 8 ----------------
-    intersectional_groups = []
+        for col1, col2 in combinations(protected_columns, 2):
+            g1 = _group_series_for_protected(df, col1)
+            g2 = _group_series_for_protected(df, col2)
 
-    protected_cols = [
-        col for col in df.columns
-        if any(pc in col.lower() for pc in PROTECTED_CANDIDATES)
-    ]
+            working = pd.DataFrame({
+                col1: g1,
+                col2: g2,
+                "__t__": target_indicator,
+            }).dropna(subset=[col1, col2, "__t__"])
 
-    if target_column and len(protected_cols) >= 2:
-        col1, col2 = protected_cols[:2]
-        grouped = df.groupby([col1, col2])[target_column]
+            grouped = working.groupby([col1, col2])["__t__"].agg(["count", "sum", "mean"])
 
-        group_data = {}
+            group_data: dict = {}
+            rates: list[float] = []
+            sizes: list[int] = []
 
-        for keys, values in grouped:
-            count = len(values)
-            positive = (values == positive_class_label).sum()
-            rate = positive / count if count > 0 else 0
+            # reset_index() turns the MultiIndex into regular columns, avoiding
+            # subscript access on a Hashable index (pyright limitation with iterrows).
+            for _, row in grouped.reset_index().iterrows():
+                count = int(row["count"])
+                positive = int(row["sum"])
+                rate = float(row["mean"]) if count > 0 else 0.0
+                group_key = f"{row[col1]}|{row[col2]}"
+                group_data[group_key] = {
+                    "count": count,
+                    "positive_count": positive,
+                    "positive_rate": rate,
+                }
+                rates.append(rate)
+                sizes.append(count)
 
-            group_data[str(keys)] = {
-                "count": int(count),
-                "positive_rate": float(rate)
-            }
+            if group_data:
+                intersectional_groups.append({
+                    "attributes": [col1, col2],
+                    "groups": group_data,
+                    "min_group_size": int(min(sizes)),
+                    "max_rate_disparity": float(max(rates) - min(rates)),
+                })
 
-        intersectional_groups.append({
-            "attributes": [col1, col2],
-            "groups": group_data
-        })
-
-    # ---------------- CATEGORY 9 ----------------
-    missingness_by_group = {}
+    # ── CATEGORY 9: Missingness by group ─────────────────────────────────────
+    missingness_by_group: dict = {}
 
     for col in df.columns:
         if df[col].isnull().sum() == 0:
             continue
-
         missingness_by_group[col] = {}
+        for protected in protected_columns:
+            group_series = _group_series_for_protected(df, protected)
+            missingness_by_group[col][protected] = {
+                str(grp): {"missing_rate": float(sub.isnull().mean())}
+                for grp, sub in df.groupby(group_series)[col]
+            }
 
-        for protected in protected_cols:
-            grouped = df.groupby(protected)[col]
-
-            missingness_by_group[col][protected] = {}
-
-            for group, values in grouped:
-                missingness_by_group[col][protected][str(group)] = {
-                    "missing_rate": float(values.isnull().mean())
-                }
-
-    # ---------------- CATEGORY 10 ----------------
+    # ── CATEGORY 10: Schema inference ────────────────────────────────────────
     schema_inference = {
-        "detected_domain": "unknown",
-        "likely_model_task": "binary_classification" if target_type == "binary" else "regression"
+        "detected_domain": infer_domain(column_names),
+        "likely_model_task": (
+            "binary_classification" if target_type == "binary"
+            else "multiclass_classification" if target_type == "multiclass"
+            else "regression" if target_type == "continuous"
+            else "unknown"
+        ),
     }
 
-    # ---------------- FINAL ----------------
-    result= {
+    # ── Final result ──────────────────────────────────────────────────────────
+    result = {
         "dataset_fundamentals": {
             "total_rows": total_rows,
             "total_columns": len(column_names),
@@ -431,17 +611,17 @@ async def analyze_dataset(file):
             "column_dtypes": column_dtypes,
             "missing_values": missing_values,
             "duplicate_rows": {
-                "count": int(duplicate_count),
-                "percentage": float(duplicate_count / total_rows * 100)
-            }
+                "count": duplicate_count,
+                "percentage": float(duplicate_count / total_rows * 100),
+            },
         },
         "target_analysis": {
             "target_column": target_column,
             "target_type": target_type,
             "class_distribution": class_distribution,
-            "positive_class_label": str(positive_class_label) if positive_class_label else None,
+            "positive_class_label": str(positive_class_label) if positive_class_label is not None else None,
             "class_imbalance_ratio": imbalance_ratio,
-            "base_rate": base_rate
+            "base_rate": base_rate,
         },
         "group_outcome_stats": group_outcome_stats,
         "preliminary_bias_signals": preliminary_bias_signals,
@@ -452,8 +632,7 @@ async def analyze_dataset(file):
         "feature_target_correlation": feature_target_correlation,
         "protected_feature_correlations": protected_feature_correlations,
         "statistical_tests": statistical_tests,
-        "feature_stats": feature_stats,
-        "missingness_by_group": missingness_by_group
+        "missingness_by_group": missingness_by_group,
     }
 
     return clean_nan(result)
