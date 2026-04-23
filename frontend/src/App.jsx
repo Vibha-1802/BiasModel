@@ -26,21 +26,17 @@ function App() {
         },
       });
 
-<<<<<<< HEAD
-      setData(response.data);
-      setCurrentView('dashboard');
-=======
       const responseData = response.data;
       let downloadUrl = null;
       if (responseData?.optimal_mitigation?.mitigated_dataset_csv) {
           const csvString = responseData.optimal_mitigation.mitigated_dataset_csv;
           const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
           downloadUrl = URL.createObjectURL(blob);
-          delete responseData.optimal_mitigation.mitigated_dataset_csv;
+          // Retaining the CSV in the JSON response so it's visible to other developers
       }
 
       setData({ ...responseData, downloadUrl });
->>>>>>> 3c7504e93760a26a1835264707e32672f04008a0
+      setCurrentView('dashboard');
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.detail || 'Failed to analyze the dataset. Please ensure the backend is running on port 8000.');

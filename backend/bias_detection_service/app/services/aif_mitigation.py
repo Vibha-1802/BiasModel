@@ -322,7 +322,7 @@ class AIFMitigationEngine:
         from aif360.algorithms.preprocessing import Reweighing
         
         export_df = self.df.copy()
-        attributes_to_mitigate = target_attributes if target_attributes else self.protected_attributes
+        attributes_to_mitigate = target_attributes if target_attributes is not None else self.protected_attributes
         
         for attr in attributes_to_mitigate:
             if attr not in export_df.columns:

@@ -676,7 +676,7 @@ class BiasMitigationEngine:
         """
         export_df = self.df.copy()
         y = self._normalize_target(export_df[self.target_col])
-        attributes_to_mitigate = target_attributes if target_attributes else self.protected_attributes
+        attributes_to_mitigate = target_attributes if target_attributes is not None else self.protected_attributes
         
         for attr in attributes_to_mitigate:
             if attr not in export_df.columns:
