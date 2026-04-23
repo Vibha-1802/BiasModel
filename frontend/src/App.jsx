@@ -30,7 +30,7 @@ function App() {
           const csvString = responseData.optimal_mitigation.mitigated_dataset_csv;
           const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
           downloadUrl = URL.createObjectURL(blob);
-          delete responseData.optimal_mitigation.mitigated_dataset_csv;
+          // Retaining the CSV in the JSON response so it's visible to other developers
       }
 
       setData({ ...responseData, downloadUrl });
