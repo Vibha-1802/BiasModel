@@ -91,6 +91,7 @@ export default function Dashboard({ data, onReset }) {
           <h1 className="font-headline-lg text-headline-lg m-0">Fairness Analysis Report</h1>
           <p className="font-body-md text-on-surface-variant mt-2">Comprehensive bias detection and mitigation analysis</p>
         </div>
+<<<<<<< HEAD
         <button 
           className="bg-white border border-slate-300 text-on-surface px-6 py-2 rounded shadow-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-all font-label-md uppercase tracking-wider" 
           onClick={onReset}
@@ -98,6 +99,25 @@ export default function Dashboard({ data, onReset }) {
           <RefreshCw size={16} /> 
           <span>Analyze New Dataset</span>
         </button>
+=======
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {data.downloadUrl && (
+            <a 
+              href={data.downloadUrl} 
+              download="mitigated_dataset.csv" 
+              className="btn-primary" 
+              style={{ backgroundColor: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
+            >
+              <Database size={16} /> 
+              <span>Download Mitigated Data</span>
+            </a>
+          )}
+          <button className="btn-primary" onClick={onReset} style={{ backgroundColor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RefreshCw size={16} /> 
+            <span>Analyze New Dataset</span>
+          </button>
+        </div>
+>>>>>>> 3c7504e93760a26a1835264707e32672f04008a0
       </div>
 
       {/* Tab Navigation */}

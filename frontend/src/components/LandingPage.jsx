@@ -35,14 +35,14 @@ export default function LandingPage({ onTryItNow }) {
             <h1 className="font-headline-lg text-headline-lg text-on-background lg:text-[48px] lg:leading-[56px]">
               Objective lens for <br/><span className="text-primary">algorithmic transparency</span>
             </h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg mt-base">
+            <p className="font-body-lg text-body-lg text-on-surface-variant max-w-[500px] mt-base">
               Equip your data science and compliance teams with clinical precision tools to identify, measure, and mitigate bias across multi-source data environments.
             </p>
-            <div className="flex items-center gap-sm mt-md">
-              <button onClick={onTryItNow} className="bg-primary text-on-primary px-lg py-sm font-label-md uppercase tracking-wider hover:bg-on-primary-fixed-variant transition-all rounded shadow-sm">
+            <div className="flex items-center gap-4 mt-md flex-wrap">
+              <button onClick={onTryItNow} className="bg-primary text-white px-8 py-3 font-label-md uppercase tracking-wider hover:bg-on-primary-fixed-variant transition-all rounded shadow-sm">
                 Try it Now
               </button>
-              <button className="border border-outline text-on-surface px-lg py-sm font-label-md uppercase tracking-wider hover:bg-surface-container-low transition-all rounded">
+              <button className="border border-outline text-on-surface px-8 py-3 font-label-md uppercase tracking-wider hover:bg-surface-container-low transition-all rounded">
                 View Demo
               </button>
             </div>
@@ -201,9 +201,9 @@ export default function LandingPage({ onTryItNow }) {
           <div className="max-w-3xl mx-auto text-center flex flex-col items-center gap-md">
             <h2 className="font-headline-lg text-headline-lg text-white">Ready to ensure algorithmic integrity?</h2>
             <p className="font-body-lg text-slate-400">Join the waitlist for BiasLens Pro or schedule a consultation with our data ethics specialists today.</p>
-            <div className="flex flex-col sm:flex-row gap-sm w-full sm:w-auto">
-              <button onClick={onTryItNow} className="bg-primary text-white px-xl py-sm font-label-md uppercase tracking-widest rounded-full hover:bg-on-primary-fixed-variant transition-all">Get Enterprise Access</button>
-              <button className="border border-slate-700 text-white px-xl py-sm font-label-md uppercase tracking-widest rounded-full hover:bg-slate-800 transition-all">Talk to Sales</button>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              <button onClick={onTryItNow} className="bg-primary text-white px-8 py-3 font-label-md uppercase tracking-widest rounded-full hover:bg-on-primary-fixed-variant transition-all">Get Enterprise Access</button>
+              <button className="border border-slate-700 text-white px-8 py-3 font-label-md uppercase tracking-widest rounded-full hover:bg-slate-800 transition-all">Talk to Sales</button>
             </div>
           </div>
         </section>

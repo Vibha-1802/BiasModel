@@ -313,3 +313,33 @@ class AIFMitigationEngine:
         b = baseline.get("overall_status", "")
         m = mitigated.get("overall_status", "")
         return "🎯 HIGHLY EFFECTIVE - Bias resolved" if "PASSED" in m and "PASSED" not in b else ("✅ MODERATELY EFFECTIVE - Some improvement" if "PARTIAL" in m or "⚠️" in m else "⚠️ LIMITED EFFECTIVENESS - May need additional mitigation")
+
+    def export_mitigated_dataset(self, target_attributes: list[str] = None) -> pd.DataFrame:
+        """
+        Computes reweighing weights for the entire dataset using AIF360 and returns 
+        a copy of the dataset with the new weight columns appended.
+        """
+        from aif360.algorithms.preprocessing import Reweighing
+        
+        export_df = self.df.copy()
+        attributes_to_mitigate = target_attributes if target_attributes else self.protected_attributes
+        
+        for attr in attributes_to_mitigate:
+            if attr not in export_df.columns:
+                continue
+                
+            aif_df = export_df[[attr, self.target_col]].copy()
+            aif_dataset = self._to_aif_dataset(aif_df, self.target_col, attr)
+            
+            try:
+                privileged_groups = [{attr: 1}]
+                unprivileged_groups = [{attr: 0}]
+                
+                RW = Reweighing(unprivileged_groups=unprivileged_groups, privileged_groups=privileged_groups)
+                RW.fit(aif_dataset)
+                dataset_transf = RW.transform(aif_dataset)
+                export_df[f"sample_weight_{attr}"] = dataset_transf.instance_weights
+            except Exception as e:
+                print(f"Failed to export AIF360 weights for {attr}: {e}")
+                
+        return export_df

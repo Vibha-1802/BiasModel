@@ -668,3 +668,25 @@ class BiasMitigationEngine:
             return "✅ MODERATELY EFFECTIVE - Some improvement"
         else:
             return "⚠️ LIMITED EFFECTIVENESS - May need additional mitigation"
+
+    def export_mitigated_dataset(self, target_attributes: list[str] = None) -> pd.DataFrame:
+        """
+        Computes reweighing weights for the entire dataset and returns a copy 
+        of the dataset with the new weight columns appended.
+        """
+        export_df = self.df.copy()
+        y = self._normalize_target(export_df[self.target_col])
+        attributes_to_mitigate = target_attributes if target_attributes else self.protected_attributes
+        
+        for attr in attributes_to_mitigate:
+            if attr not in export_df.columns:
+                continue
+            
+            A_all = self._normalize_sensitive_feature(export_df[attr])
+            try:
+                sample_weights = self._compute_reweighing_weights(y, A_all)
+                export_df[f"sample_weight_{attr}"] = sample_weights
+            except Exception as e:
+                print(f"Error computing weights for {attr}: {e}")
+                
+        return export_df

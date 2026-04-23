@@ -1,0 +1,201 @@
+Gender,Education,ApplicantIncome,Credit_History,Loan_Status
+Male,Not Graduate,1875,1,Y
+Male,Graduate,9083,1,Y
+Female,Not Graduate,3400,1,N
+Male,Not Graduate,3010,0,Y
+Male,Graduate,2213,1,Y
+Male,Not Graduate,2653,0,Y
+Male,Graduate,4583,1,Y
+Male,Graduate,3333,1,Y
+Male,Graduate,2935,1,Y
+Male,Graduate,3062,0,Y
+Male,Graduate,16666,1,Y
+Male,Graduate,2435,1,Y
+Male,Graduate,3547,0,Y
+Male,Graduate,5829,1,Y
+Male,Graduate,2083,1,Y
+Female,Not Graduate,2720,0,N
+Male,Graduate,3153,1,Y
+Male,Not Graduate,5800,1,Y
+Male,Graduate,1836,1,Y
+Male,Graduate,16667,1,Y
+Male,Graduate,3500,1,Y
+Female,Graduate,7440,1,N
+Male,Graduate,2625,1,Y
+Male,Not Graduate,2510,1,Y
+Male,Graduate,2787,0,N
+Male,Graduate,5488,1,Y
+Male,Not Graduate,3189,1,Y
+Male,Graduate,6325,1,Y
+Male,Graduate,6700,1,Y
+Male,Not Graduate,4554,1,Y
+Male,Graduate,3159,1,Y
+Male,Graduate,6417,1,Y
+Male,Graduate,7948,1,Y
+Male,Not Graduate,6125,1,Y
+Male,Graduate,2787,0,Y
+Female,Graduate,2138,0,N
+Female,Graduate,8333,1,N
+Male,Not Graduate,3399,1,Y
+Male,Not Graduate,4695,1,Y
+Male,Not Graduate,3691,1,Y
+Male,Graduate,3158,1,Y
+Male,Graduate,5116,0,N
+Male,Graduate,5503,1,Y
+Male,Graduate,12500,1,Y
+Male,Graduate,150,1,Y
+Female,Graduate,10047,1,N
+Male,Not Graduate,2281,1,Y
+Male,Graduate,2483,0,Y
+Male,Graduate,5000,1,Y
+Female,Graduate,6000,1,N
+Male,Graduate,3450,1,Y
+Male,Graduate,3466,1,Y
+Male,Graduate,39147,1,Y
+Male,Graduate,3229,1,Y
+Male,Graduate,6633,0,N
+Male,Graduate,7787,1,Y
+Male,Graduate,2799,1,Y
+Male,Graduate,14683,1,Y
+Male,Not Graduate,2917,1,Y
+Male,Graduate,4281,1,Y
+Male,Graduate,5667,1,Y
+Female,Graduate,15759,1,N
+Female,Graduate,4547,1,N
+Male,Graduate,3166,0,Y
+Male,Not Graduate,4053,0,N
+Male,Not Graduate,3620,1,Y
+Male,Graduate,3052,1,Y
+Male,Graduate,2833,1,Y
+Female,Graduate,4180,1,N
+Male,Graduate,4342,1,Y
+Male,Graduate,6277,0,Y
+Female,Graduate,10408,1,Y
+Male,Graduate,2491,1,Y
+Male,Graduate,16250,0,N
+Male,Not Graduate,2647,1,Y
+Male,Not Graduate,7100,1,Y
+Male,Graduate,2785,1,Y
+Female,Graduate,3159,1,N
+Female,Graduate,4723,1,N
+Male,Graduate,3208,1,Y
+Male,Graduate,10833,1,Y
+Male,Graduate,2366,1,Y
+Male,Not Graduate,5800,1,Y
+Male,Not Graduate,2167,1,Y
+Male,Graduate,14880,1,Y
+Female,Graduate,1500,0,N
+Male,Not Graduate,5285,0,Y
+Male,Graduate,6325,1,Y
+Male,Not Graduate,3074,0,N
+Male,Graduate,3858,1,Y
+Female,Graduate,11500,0,N
+Male,Graduate,4895,1,Y
+Male,Not Graduate,2550,1,Y
+Male,Graduate,3948,0,Y
+Male,Graduate,2577,1,Y
+Male,Not Graduate,1668,0,Y
+Female,Graduate,645,1,N
+Male,Not Graduate,1958,1,Y
+Male,Not Graduate,2454,0,Y
+Female,Graduate,3667,1,N
+Male,Graduate,2275,1,Y
+Male,Graduate,3775,1,Y
+Male,Graduate,37719,1,Y
+Female,Not Graduate,1963,1,N
+Female,Graduate,1378,1,N
+Male,Graduate,17500,1,Y
+Male,Not Graduate,4652,1,Y
+Male,Not Graduate,2755,1,Y
+Male,Graduate,1000,1,Y
+Male,Graduate,3988,1,Y
+Male,Graduate,3232,1,Y
+Male,Graduate,3676,1,Y
+Female,Graduate,2378,1,N
+Male,Graduate,3333,1,Y
+Male,Graduate,6283,0,N
+Male,Graduate,2583,1,Y
+Male,Graduate,2947,1,Y
+Male,Graduate,6700,1,Y
+Male,Graduate,4384,1,Y
+Male,Graduate,5468,1,Y
+Male,Graduate,7250,0,Y
+Male,Graduate,3887,1,Y
+Male,Graduate,5818,1,Y
+Male,Graduate,3069,1,Y
+Male,Graduate,1820,1,Y
+Male,Graduate,6540,1,Y
+Male,Graduate,5935,1,Y
+Male,Graduate,5417,1,Y
+Male,Not Graduate,3357,1,Y
+Female,Not Graduate,5191,1,N
+Male,Graduate,3588,0,Y
+Female,Graduate,3812,1,N
+Male,Graduate,11417,1,Y
+Female,Graduate,4583,0,N
+Male,Not Graduate,2309,0,Y
+Female,Graduate,1500,0,N
+Female,Graduate,5500,0,N
+Male,Graduate,3229,1,Y
+Male,Not Graduate,3273,1,Y
+Male,Graduate,3200,1,Y
+Male,Graduate,2833,1,Y
+Male,Graduate,3246,1,Y
+Female,Not Graduate,17263,1,N
+Male,Graduate,2718,1,Y
+Male,Graduate,3182,1,Y
+Male,Graduate,3875,1,Y
+Male,Graduate,3500,1,Y
+Male,Graduate,15000,1,Y
+Female,Graduate,2600,1,N
+Male,Graduate,4865,1,Y
+Male,Graduate,2500,1,Y
+Male,Graduate,5695,1,Y
+Male,Graduate,6133,1,Y
+Male,Graduate,3062,0,Y
+Male,Graduate,2987,0,Y
+Male,Graduate,2785,1,Y
+Female,Graduate,2876,1,Y
+Male,Not Graduate,3987,1,Y
+Male,Graduate,2987,0,N
+Male,Graduate,2333,1,Y
+Male,Not Graduate,3358,1,Y
+Male,Graduate,5532,1,Y
+Male,Graduate,2750,1,Y
+Male,Graduate,19730,1,Y
+Male,Graduate,6400,1,Y
+Male,Graduate,3716,1,Y
+Male,Not Graduate,3902,1,Y
+Male,Graduate,3036,0,Y
+Male,Graduate,3593,0,N
+Male,Not Graduate,1820,1,Y
+Male,Graduate,2726,0,Y
+Male,Graduate,5316,1,Y
+Male,Graduate,2895,1,Y
+Male,Graduate,4400,0,Y
+Female,Graduate,4583,0,N
+Female,Not Graduate,4350,1,N
+Male,Graduate,3000,1,Y
+Female,Graduate,2900,1,N
+Male,Graduate,3417,1,Y
+Male,Graduate,8333,1,Y
+Male,Graduate,3155,1,Y
+Male,Not Graduate,2755,1,Y
+Male,Graduate,3617,1,Y
+Male,Graduate,3069,1,Y
+Male,Not Graduate,2400,1,Y
+Male,Graduate,3708,1,Y
+Male,Not Graduate,3523,0,Y
+Male,Graduate,2920,1,Y
+Male,Not Graduate,2947,0,Y
+Male,Not Graduate,1958,1,Y
+Male,Not Graduate,2346,1,Y
+Male,Graduate,7085,1,Y
+Male,Graduate,2500,1,Y
+Male,Graduate,4167,1,Y
+Female,Graduate,3326,1,N
+Female,Graduate,4723,1,N
+Male,Graduate,5000,0,N
+Male,Graduate,3033,1,Y
+Male,Graduate,3597,0,N
+Male,Graduate,4691,1,Y

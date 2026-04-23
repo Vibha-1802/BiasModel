@@ -7,6 +7,7 @@ from itertools import combinations
 import numpy as np
 import pandas as pd
 from fastapi import HTTPException
+import httpx
 from scipy.stats import chi2_contingency, pointbiserialr
 
 # ---------------------------------------------------------------------------
@@ -15,41 +16,8 @@ from scipy.stats import chi2_contingency, pointbiserialr
 
 MAX_FILE_SIZE_MB = 10
 
-TARGET_KEYWORDS = [
-    "label", "target", "outcome", "approved", "hired",
-    "shortlisted", "shortlist", "selected", "decision",
-    "admitted", "granted", "accepted", "rejected",
-    "churned", "defaulted", "readmitted", "attrition",
-]
-
-PREDICTION_KEYWORDS = [
-    "prediction", "score", "proba", "probability", "output", "y_pred",
-    "pred", "predicted", "classification", "likelihood",
-]
-
-# Substring match against column name parts — keep this comprehensive.
-PROTECTED_CANDIDATES = [
-    "gender", "sex", "race", "ethnicity", "age",
-    "nationality", "religion", "disability", "marital",
-    "income", "zip", "zipcode", "caste",
-]
-
-DOMAIN_KEYWORDS: dict[str, list[str]] = {
-    "credit_scoring": ["loan", "credit", "approved", "approval", "interest", "default"],
-    "hiring": [
-        "hire", "hired", "candidate", "resume", "job", "interview", "employment",
-        "shortlist", "shortlisted", "screening", "applicant", "recruited", "attrition",
-    ],
-    "healthcare": [
-        "patient", "diagnosis", "hospital", "treatment", "medical", "health",
-        "readmit", "readmission", "clinical",
-    ],
-    "criminal_justice": ["recidivism", "arrest", "crime", "offense", "sentence", "parole", "compas"],
-    "housing": ["mortgage", "housing", "rent", "tenant", "property", "home"],
-}
-
 FAVORABLE_LABEL_HINTS = {
-    "1", "true", "yes", "approved", "approve", "accepted",
+    "1", "true", "yes", "y", "approved", "approve", "accepted",
     "selected", "shortlisted", "hired", "admitted", "granted",
     "pass", "positive", "favorable", "good",
 }
@@ -83,7 +51,19 @@ def clean_nan(obj):
 
 def is_binary_series(series: pd.Series) -> bool:
     unique_vals = set(series.dropna().unique().tolist())
-    return len(unique_vals) == 2 and unique_vals.issubset({0, 1, 0.0, 1.0, False, True})
+    if len(unique_vals) != 2:
+        return False
+    # Check numeric/boolean true binary
+    if unique_vals.issubset({0, 1, 0.0, 1.0, False, True}):
+        return True
+    
+    # Check common string binary pairs
+    lower_vals = {str(v).strip().lower() for v in unique_vals}
+    valid_string_pairs = [
+        {"y", "n"}, {"yes", "no"}, {"true", "false"}, {"t", "f"}, 
+        {"pass", "fail"}, {"approve", "reject"}, {"approved", "rejected"}
+    ]
+    return lower_vals in valid_string_pairs
 
 
 def is_categorical(series: pd.Series) -> bool:
@@ -94,41 +74,9 @@ def is_categorical(series: pd.Series) -> bool:
     )
 
 
-def _col_matches_keywords(col_lower: str, keywords: list[str]) -> bool:
-    """Match keyword against whole column name or any underscore/hyphen-separated part."""
-    parts = set(col_lower.replace("-", "_").split("_"))
-    return any(kw in parts or kw == col_lower for kw in keywords)
-
-
-def _protected_cols(df: pd.DataFrame) -> list[str]:
-    return [
-        col for col in df.columns
-        if _col_matches_keywords(col.lower(), PROTECTED_CANDIDATES)
-    ]
-
-
-def infer_domain(column_names: list[str]) -> str:
-    lowered = [col.lower() for col in column_names]
-    for domain, keywords in DOMAIN_KEYWORDS.items():
-        if any(kw in col for col in lowered for kw in keywords):
-            return domain
-    return "unknown"
-
 # ---------------------------------------------------------------------------
 # Target / label inference
 # ---------------------------------------------------------------------------
-
-def detect_target_column(df: pd.DataFrame) -> str | None:
-    # Priority 1: whole-part keyword match (avoids "selected_features" matching "selected")
-    for col in df.columns:
-        if _col_matches_keywords(col.lower(), TARGET_KEYWORDS):
-            return col
-    # Priority 2: first binary 0/1 numeric column as fallback
-    for col in df.columns:
-        if pd.api.types.is_numeric_dtype(df[col]) and is_binary_series(df[col]):
-            return col
-    # Priority 3: use the last column as a final guess
-    return df.columns[-1] if not df.empty else None
 
 
 def infer_target_type(series: pd.Series) -> str:
@@ -343,7 +291,53 @@ async def analyze_dataset(file):
 
     total_rows = len(df)
     column_names = list(df.columns)
-    protected_columns = _protected_cols(df)
+    
+    # ── CATEGORY 1.5: Schema Inference via LLM ──────────────────────────────
+    target_column = None
+    protected_columns = []
+    dataset_domain = "unknown"
+    has_model_predictions = False
+
+    try:
+        sample_data = df.head(3).to_dict(orient="records")
+        # Ensure values are JSON serializable
+        safe_sample = [clean_nan(row) for row in sample_data]
+        
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "http://localhost:8001/infer_schema", 
+                json={
+                    "columns": column_names,
+                    "sample_data": safe_sample
+                },
+                timeout=30.0
+            )
+            if resp.status_code == 200:
+                schema = resp.json()
+                print(f"LLM Response Schema: {schema}")
+                target_column = schema.get("target_column")
+                protected_columns = schema.get("protected_columns", [])
+                dataset_domain = schema.get("dataset_domain", "unknown")
+                has_model_predictions = schema.get("has_model_predictions", False)
+                
+                # Validate the LLM output against actual columns
+                if target_column not in column_names:
+                    print(f"Target column '{target_column}' not in {column_names}")
+                    target_column = None
+                protected_columns = [col for col in protected_columns if col in column_names]
+            else:
+                print(f"LLM API Error: {resp.status_code} - {resp.text}")
+    except Exception as e:
+        print(f"LLM Schema inference failed with exception: {e}")
+        
+    # Fallback if LLM fails or doesn't find target
+    if not target_column:
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]) and is_binary_series(df[col]):
+                target_column = col
+                break
+        if not target_column and not df.empty:
+            target_column = df.columns[-1]
 
     # ── CATEGORY 1: Dataset fundamentals ────────────────────────────────────
     column_dtypes = {
@@ -360,7 +354,6 @@ async def analyze_dataset(file):
     duplicate_count = int(df.duplicated().sum())
 
     # ── CATEGORY 2: Target analysis ─────────────────────────────────────────
-    target_column = detect_target_column(df)
     target_type = None
     class_distribution: dict = {}
     positive_class_label = None
@@ -598,17 +591,14 @@ async def analyze_dataset(file):
 
     # ── CATEGORY 10: Schema inference ────────────────────────────────────────
     schema_inference = {
-        "detected_domain": infer_domain(column_names),
+        "detected_domain": dataset_domain,
         "likely_model_task": (
             "binary_classification" if target_type == "binary"
             else "multiclass_classification" if target_type == "multiclass"
             else "regression" if target_type == "continuous"
             else "unknown"
         ),
-        "has_model_predictions": any(
-            _col_matches_keywords(col.lower(), PREDICTION_KEYWORDS)
-            for col in column_names
-        ),
+        "has_model_predictions": has_model_predictions,
     }
 
     # ── Final result ──────────────────────────────────────────────────────────
@@ -617,6 +607,7 @@ async def analyze_dataset(file):
             "total_rows": total_rows,
             "total_columns": len(column_names),
             "column_names": column_names,
+            "sample_data": df.head(5).to_dict(orient="records"),
             "column_dtypes": column_dtypes,
             "missing_values": missing_values,
             "duplicate_rows": {

@@ -279,6 +279,7 @@ def _build_summary_response(stats: dict) -> dict:
             "phase_2_failed_attributes": phase2.get("failed_attributes", []),
             "phase_3_status": phase3.get("overall_status"),
             "phase_4_summary": phase4.get("summary", {}),
+            "mitigated_dataset_csv": stats.get("optimal_mitigation", {}).get("mitigated_dataset_csv"),
         },
         "reporting_pack": stats.get("reporting_pack", {}),
     }
@@ -491,6 +492,30 @@ async def analyze_dataset_controller(file, include_full: bool = False):
                     stats["reporting_pack"] = _build_visualization_pack(stats, best_algo="aif_mitigation")
                 else:
                     stats["reporting_pack"] = _build_visualization_pack(stats)
+                    
+                # Generate and append mitigated dataset CSV
+                if "optimal_mitigation" in stats and stats["optimal_mitigation"].get("selected_algorithm"):
+                    best_algo = stats["optimal_mitigation"]["selected_algorithm"]
+                    try:
+                        mitigated_df = None
+                        if best_algo == "fairlearn_mitigation" and FAIRLEARN_AVAILABLE and BiasMitigationEngine is not None:
+                            engine = BiasMitigationEngine(df, bias_plan)
+                            baseline_eval = stats["fairlearn_mitigation"]["phase_1_baseline"]
+                            failing_attributes = _select_failing_attributes(baseline_eval)
+                            mitigated_df = engine.export_mitigated_dataset(target_attributes=failing_attributes)
+                        elif best_algo == "aif_mitigation" and AIF360_AVAILABLE and AIFMitigationEngine is not None:
+                            engine = AIFMitigationEngine(df, bias_plan)
+                            baseline_eval = stats["aif_mitigation"]["phase_1_baseline"]
+                            failing_attributes = _select_failing_attributes(baseline_eval)
+                            mitigated_df = engine.export_mitigated_dataset(target_attributes=failing_attributes)
+                            
+                        if mitigated_df is not None:
+                            csv_buffer = StringIO()
+                            mitigated_df.to_csv(csv_buffer, index=False)
+                            stats["optimal_mitigation"]["mitigated_dataset_csv"] = csv_buffer.getvalue()
+                    except Exception as export_err:
+                        print(f"Failed to export mitigated dataset: {export_err}")
+                        stats["optimal_mitigation"]["mitigated_dataset_export_error"] = str(export_err)
                     
             except Exception as e:
                  print(f"Dataset reading failed during mitigation setup: {str(e)}")
